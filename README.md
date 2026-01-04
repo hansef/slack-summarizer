@@ -18,14 +18,52 @@ A comprehensive Slack activity summarization tool with both CLI and MCP (Model C
 
 - Node.js >= 20.0.0
 - pnpm 9.0.0
-- Slack User Token (`xoxp-...`)
+- Slack User Token (`xoxp-...`) - see [Slack App Setup](#slack-app-setup)
 - Anthropic API Key
+
+## Slack App Setup
+
+Each user needs to create their own Slack app to get a user token. This is required because the summarizer needs to access your personal Slack activity.
+
+### 1. Create a Slack App
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps)
+2. Click **Create New App** → **From scratch**
+3. Name it (e.g., "My Slack Summarizer") and select your workspace
+
+### 2. Configure OAuth Scopes
+
+Go to **OAuth & Permissions** in the sidebar, scroll to **User Token Scopes**, and add:
+
+| Scope | Purpose |
+|-------|---------|
+| `channels:history` | Read messages in public channels |
+| `channels:read` | List public channels you're in |
+| `groups:history` | Read messages in private channels |
+| `groups:read` | List private channels you're in |
+| `im:history` | Read direct messages |
+| `im:read` | List direct message conversations |
+| `mpim:history` | Read group direct messages |
+| `mpim:read` | List group DM conversations |
+| `reactions:read` | See reactions you've given |
+| `search:read` | Search messages (used to find your activity) |
+| `team:read` | Get workspace info |
+| `users:read` | Get user display names |
+
+### 3. Install and Get Your Token
+
+1. Go to **OAuth & Permissions**
+2. Click **Install to Workspace** and authorize
+3. Copy the **User OAuth Token** (starts with `xoxp-`)
+4. Add it to your `.env` file as `SLACK_USER_TOKEN`
+
+> **Note:** This is a *user* token, not a bot token. It accesses Slack as you, so it can only see channels and messages you have access to.
 
 ## Installation
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/hansef/slack-summarizer.git
 cd slack-summarizer
 
 # Install dependencies
