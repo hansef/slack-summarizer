@@ -7,7 +7,7 @@ import { SummarizationClient, getSummarizationClient } from './client.js';
 import { logger } from '../../utils/logger.js';
 import { getEnv } from '../../utils/env.js';
 import { parseTimespan, formatISO, now } from '../../utils/dates.js';
-import { mapWithConcurrency } from '../../utils/concurrency.js';
+import { mapWithConcurrency, mapWithGlobalClaudeLimiter } from '../../utils/concurrency.js';
 import {
   SummaryOutput,
   ChannelSummary,
@@ -41,6 +41,7 @@ export class SummaryAggregator {
     timespan: string,
     userId?: string
   ): Promise<SummaryOutput> {
+    logger.timeStart('generateSummary:total');
     const timeRange = parseTimespan(timespan);
     const targetUserId = userId ?? (await this.slackClient.getCurrentUserId());
     const timezone = getEnv().SLACK_SUMMARIZER_TIMEZONE;
@@ -53,20 +54,28 @@ export class SummaryAggregator {
     });
 
     // Step 1: Fetch all user activity
+    logger.timeStart('generateSummary:fetchUserActivity');
     const activity = await this.dataFetcher.fetchUserActivity(targetUserId, timeRange);
+    logger.timeEnd('generateSummary:fetchUserActivity', {
+      messagesSent: activity.messagesSent.length,
+      channels: activity.channels.length,
+      threads: activity.threadsParticipated.length,
+    });
 
     // Step 2: Build user display names map (bulk fetch all workspace users)
-    logger.info('Fetching all workspace users...');
+    logger.timeStart('generateSummary:buildUserDisplayNames');
     const userDisplayNames = await this.buildUserDisplayNames();
-    logger.info('Fetched user display names', { count: userDisplayNames.size });
+    logger.timeEnd('generateSummary:buildUserDisplayNames', { count: userDisplayNames.size });
 
     // Step 3: Group messages by channel, segment, consolidate, and summarize
     logger.info('Segmenting, consolidating, and summarizing conversations...');
+    logger.timeStart('generateSummary:buildChannelSummaries');
     const channelSummaries = await this.buildChannelSummaries(
       activity,
       targetUserId,
       userDisplayNames
     );
+    logger.timeEnd('generateSummary:buildChannelSummaries', { channels: channelSummaries.length });
 
     // Step 4: Calculate aggregate statistics
     const summary = this.calculateAggregateStats(activity);
@@ -93,7 +102,7 @@ export class SummaryAggregator {
       channels: channelSummaries,
     };
 
-    logger.info('Summary generated', {
+    logger.timeEnd('generateSummary:total', {
       channels: output.summary.total_channels,
       messages: output.summary.total_messages,
     });
@@ -325,6 +334,7 @@ export class SummaryAggregator {
     const results = await mapWithConcurrency(
       channelIdArray,
       async (channelId) => {
+        const channelStartTime = performance.now();
         const channelInfo = channelInfoMap.get(channelId);
         const channelType = channelInfo ? getChannelType(channelInfo) : 'public_channel';
         const channelName = await this.resolveChannelDisplayName(
@@ -347,6 +357,7 @@ export class SummaryAggregator {
 
         // Step 1: Segment conversations using hybrid approach
         // Pass all channel messages for context enrichment
+        const segmentStart = performance.now();
         const segmentResult = await hybridSegmentation(
           messages,
           threads,
@@ -355,13 +366,16 @@ export class SummaryAggregator {
           userId,
           allChannelMsgs
         );
+        const segmentDuration = performance.now() - segmentStart;
 
         logger.debug('Segmented channel', {
           channel: channelName,
           conversations: segmentResult.conversations.length,
+          durationMs: Math.round(segmentDuration),
         });
 
         // Step 2: Consolidate related conversations (with optional embedding-based similarity)
+        const consolidateStart = performance.now();
         const enableEmbeddings = env.SLACK_SUMMARIZER_ENABLE_EMBEDDINGS && !!env.OPENAI_API_KEY;
         if (env.SLACK_SUMMARIZER_ENABLE_EMBEDDINGS && !env.OPENAI_API_KEY) {
           logger.warn('Embeddings enabled but OPENAI_API_KEY not set, falling back to reference-only');
@@ -374,6 +388,7 @@ export class SummaryAggregator {
           },
           requestingUserId: userId,
         });
+        const consolidateDuration = performance.now() - consolidateStart;
 
         logger.info('Consolidated channel', {
           channel: channelName,
@@ -381,9 +396,11 @@ export class SummaryAggregator {
           consolidatedTopics: consolidationResult.groups.length,
           botsMerged: consolidationResult.stats.botConversationsMerged,
           trivialsDropped: consolidationResult.stats.trivialConversationsDropped,
+          durationMs: Math.round(consolidateDuration),
         });
 
         // Step 3: Generate permalinks for each group
+        const linksStart = performance.now();
         const slackLinks = await this.generateGroupSlackLinks(
           consolidationResult.groups,
           channelId
@@ -391,14 +408,28 @@ export class SummaryAggregator {
 
         // Step 3.5: Enrich Slack links by fetching linked message content
         await this.enrichSlackLinks(consolidationResult.groups);
+        const linksDuration = performance.now() - linksStart;
 
         // Step 4: Summarize consolidated groups
+        const summarizeStart = performance.now();
         const topicSummaries = await this.summarizeGroups(
           consolidationResult.groups,
           userId,
           userDisplayNames,
           slackLinks
         );
+        const summarizeDuration = performance.now() - summarizeStart;
+
+        const channelTotalDuration = performance.now() - channelStartTime;
+        logger.info('[PERF] Channel processing complete', {
+          channel: channelName,
+          segmentMs: Math.round(segmentDuration),
+          consolidateMs: Math.round(consolidateDuration),
+          linksMs: Math.round(linksDuration),
+          summarizeMs: Math.round(summarizeDuration),
+          totalMs: Math.round(channelTotalDuration),
+          groups: consolidationResult.groups.length,
+        });
 
         // Only include channels where user actively participated (sent messages or threads)
         // Exclude channels where user was only mentioned but didn't participate
@@ -499,30 +530,45 @@ export class SummaryAggregator {
       return [];
     }
 
-    // Summarize in batches of 5
+    // Summarize in batches of 5, processed in parallel
     const batchSize = 5;
-    const summaries: ConversationSummary[] = [];
     const totalBatches = Math.ceil(groups.length / batchSize);
+    const claudeConcurrency = getEnv().SLACK_SUMMARIZER_CLAUDE_CONCURRENCY;
 
+    // Create batches
+    const batches: ConversationGroup[][] = [];
     for (let i = 0; i < groups.length; i += batchSize) {
-      const batchNum = Math.floor(i / batchSize) + 1;
-      const batch = groups.slice(i, i + batchSize);
-
-      logger.info('Summarizing topics', {
-        batch: `${batchNum}/${totalBatches}`,
-        topics: batch.length,
-      });
-
-      const batchSummaries = await this.summarizationClient.summarizeGroupsBatch(
-        batch,
-        userId,
-        userDisplayNames,
-        slackLinks
-      );
-      summaries.push(...batchSummaries);
+      batches.push(groups.slice(i, i + batchSize));
     }
 
-    return summaries;
+    logger.info('Summarizing topics in parallel', {
+      totalBatches,
+      totalGroups: groups.length,
+      concurrency: claudeConcurrency,
+    });
+
+    // Process batches using the GLOBAL Claude concurrency limiter
+    // This ensures all Claude API calls across all channels share the same limit
+    const batchResults = await mapWithGlobalClaudeLimiter(
+      batches,
+      async (batch, batchIndex) => {
+        logger.debug('Summarizing batch', {
+          batch: `${batchIndex + 1}/${totalBatches}`,
+          topics: batch.length,
+        });
+
+        return this.summarizationClient.summarizeGroupsBatch(
+          batch,
+          userId,
+          userDisplayNames,
+          slackLinks
+        );
+      },
+      claudeConcurrency
+    );
+
+    // Flatten results while preserving order
+    return batchResults.flat();
   }
 
   /**

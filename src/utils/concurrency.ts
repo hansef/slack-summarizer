@@ -120,3 +120,46 @@ export async function batchProcess<T, R>(
 
   return results;
 }
+
+/**
+ * Global Claude API concurrency limiter.
+ * This is a singleton that ensures we don't exceed the Claude concurrency limit
+ * across all parallel operations (channels, batches, etc.).
+ */
+let globalClaudeLimiter: ConcurrencyLimiter | null = null;
+
+/**
+ * Gets or creates the global Claude API concurrency limiter.
+ * The limiter is shared across all Claude API calls to prevent overwhelming the API.
+ */
+export function getGlobalClaudeLimiter(concurrency: number): ConcurrencyLimiter {
+  if (!globalClaudeLimiter) {
+    globalClaudeLimiter = createLimiter(concurrency);
+  }
+  return globalClaudeLimiter;
+}
+
+/**
+ * Resets the global Claude limiter (for testing purposes)
+ */
+export function resetGlobalClaudeLimiter(): void {
+  globalClaudeLimiter = null;
+}
+
+/**
+ * Maps over an array using the global Claude concurrency limiter.
+ * This ensures all Claude API calls across the application share the same concurrency limit.
+ *
+ * @param items - Array of items to process
+ * @param fn - Async function to apply to each item
+ * @param concurrency - Maximum concurrent operations (used to initialize the global limiter)
+ * @returns Promise resolving to array of results in original order
+ */
+export async function mapWithGlobalClaudeLimiter<T, R>(
+  items: T[],
+  fn: (item: T, index: number) => Promise<R>,
+  concurrency: number
+): Promise<R[]> {
+  const limiter = getGlobalClaudeLimiter(concurrency);
+  return Promise.all(items.map((item, index) => limiter(() => fn(item, index))));
+}

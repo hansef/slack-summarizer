@@ -92,6 +92,9 @@ function log(level: LogLevel, message: string, context?: Record<string, unknown>
   }
 }
 
+// Timing storage for performance instrumentation
+const timings = new Map<string, number>();
+
 export const logger = {
   debug: (message: string, context?: Record<string, unknown>) => log('debug', message, context),
   info: (message: string, context?: Record<string, unknown>) => log('info', message, context),
@@ -116,6 +119,36 @@ export const logger = {
 
   /** Check if progress mode is enabled */
   isProgressMode: () => progressMode,
+
+  /** Start a timing measurement */
+  timeStart: (label: string) => {
+    timings.set(label, performance.now());
+  },
+
+  /** End a timing measurement and log the duration */
+  timeEnd: (label: string, context?: Record<string, unknown>) => {
+    const startTime = timings.get(label);
+    if (startTime === undefined) {
+      log('warn', `Timer '${label}' was never started`);
+      return;
+    }
+    const duration = performance.now() - startTime;
+    timings.delete(label);
+    const durationSec = (duration / 1000).toFixed(2);
+    log('info', `[PERF] ${label}`, { ...context, durationMs: Math.round(duration), durationSec: `${durationSec}s` });
+  },
+
+  /** Execute an async function with timing instrumentation */
+  timed: async <T>(label: string, fn: () => Promise<T>, context?: Record<string, unknown>): Promise<T> => {
+    const startTime = performance.now();
+    try {
+      return await fn();
+    } finally {
+      const duration = performance.now() - startTime;
+      const durationSec = (duration / 1000).toFixed(2);
+      log('info', `[PERF] ${label}`, { ...context, durationMs: Math.round(duration), durationSec: `${durationSec}s` });
+    }
+  },
 };
 
 export type Logger = typeof logger;

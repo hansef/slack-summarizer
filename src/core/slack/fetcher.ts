@@ -42,6 +42,7 @@ export class DataFetcher {
     userId: string | null,
     timeRange: DateRange
   ): Promise<UserActivityData> {
+    logger.timeStart('fetchUserActivity:total');
     // Get current user if not specified
     const targetUserId = userId ?? (await this.client.getCurrentUserId());
 
@@ -53,10 +54,15 @@ export class DataFetcher {
 
     // Step 1: Search for user's messages to identify active channels
     // Also get the search results to detect thread participation
+    logger.timeStart('fetchUserActivity:fetchActiveChannels');
     const { channels, userSearchMessages } = await this.fetchActiveChannels(
       targetUserId,
       timeRange
     );
+    logger.timeEnd('fetchUserActivity:fetchActiveChannels', {
+      channels: channels.length,
+      searchMessages: userSearchMessages.length,
+    });
 
     // Step 2: Fetch full channel history with 24h lookback for context
     const messagesSent: SlackMessage[] = [];
@@ -92,6 +98,7 @@ export class DataFetcher {
     });
 
     // Fetch channel messages in parallel
+    logger.timeStart('fetchUserActivity:fetchChannelMessages');
     const channelResults = await mapWithConcurrency(
       channels,
       async (channel) => {
@@ -111,6 +118,7 @@ export class DataFetcher {
       },
       slackConcurrency
     );
+    logger.timeEnd('fetchUserActivity:fetchChannelMessages', { channels: channelResults.length });
 
     // Process results
     for (const { channelId, messages: channelMessages } of channelResults) {
@@ -133,6 +141,7 @@ export class DataFetcher {
       concurrency: slackConcurrency,
     });
 
+    logger.timeStart('fetchUserActivity:fetchThreads');
     const threadKeys = Array.from(threadTsSet);
     const threadResults = await mapWithConcurrency(
       threadKeys,
@@ -147,14 +156,19 @@ export class DataFetcher {
       },
       slackConcurrency
     );
+    logger.timeEnd('fetchUserActivity:fetchThreads', { threads: threadResults.length });
 
     threadsParticipated.push(...threadResults);
 
     // Step 4: Fetch @mentions
+    logger.timeStart('fetchUserActivity:fetchMentions');
     const mentionsReceived = await this.fetchMentions(targetUserId, timeRange);
+    logger.timeEnd('fetchUserActivity:fetchMentions', { mentions: mentionsReceived.length });
 
     // Step 5: Fetch reactions given
+    logger.timeStart('fetchUserActivity:fetchReactions');
     const reactionsGiven = await this.fetchReactions(targetUserId, timeRange);
+    logger.timeEnd('fetchUserActivity:fetchReactions', { reactions: reactionsGiven.length });
 
     const result: UserActivityData = {
       userId: targetUserId,
@@ -170,8 +184,7 @@ export class DataFetcher {
       allChannelMessages: allMessages,
     };
 
-    logger.info('Fetched user activity', {
-      userId: targetUserId,
+    logger.timeEnd('fetchUserActivity:total', {
       messagesSent: messagesSent.length,
       mentionsReceived: mentionsReceived.length,
       threadsParticipated: threadsParticipated.length,

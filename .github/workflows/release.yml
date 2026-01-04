@@ -1,0 +1,130 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.2.0)'
+        required: true
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run tests
+        env:
+          SLACK_USER_TOKEN: xoxp-test-token-for-ci
+          ANTHROPIC_API_KEY: sk-ant-test-key-for-ci
+        run: pnpm test
+
+      - name: Prepare release tarball
+        id: tarball
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TARBALL_NAME="slack-summarizer-macos-arm64.tar.gz"
+
+          # Create staging directory
+          mkdir -p release-staging/slack-summarizer
+
+          # Copy built files
+          cp -r dist release-staging/slack-summarizer/
+          cp -r node_modules release-staging/slack-summarizer/
+          cp package.json release-staging/slack-summarizer/
+
+          # Copy schema.sql to the correct location (db.ts expects it relative to dist/core/cache/)
+          mkdir -p release-staging/slack-summarizer/dist/core/cache
+          cp src/core/cache/schema.sql release-staging/slack-summarizer/dist/core/cache/
+
+          # Create tarball
+          cd release-staging
+          tar -czf "../${TARBALL_NAME}" slack-summarizer
+          cd ..
+
+          # Calculate SHA256
+          SHA256=$(shasum -a 256 "${TARBALL_NAME}" | cut -d' ' -f1)
+
+          echo "tarball=${TARBALL_NAME}" >> $GITHUB_OUTPUT
+          echo "sha256=${SHA256}" >> $GITHUB_OUTPUT
+          echo "SHA256: ${SHA256}"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: ${{ steps.tarball.outputs.tarball }}
+          body: |
+            ## Installation
+
+            ### Homebrew (macOS ARM64)
+            ```bash
+            brew tap hansef/tap
+            brew install slack-summarizer
+            ```
+
+            ### From Source
+            ```bash
+            git clone https://github.com/hansef/slack-summarizer.git
+            cd slack-summarizer
+            pnpm install
+            pnpm build
+            ```
+
+            ## Post-install
+            Run `slack-summarizer configure` to set up your API keys.
+
+            ---
+            **SHA256:** `${{ steps.tarball.outputs.sha256 }}`
+
+      - name: Trigger Homebrew tap update
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          repository: hansef/homebrew-tap
+          event-type: update-formula
+          client-payload: |
+            {
+              "formula": "slack-summarizer",
+              "tag": "${{ steps.version.outputs.tag }}",
+              "version": "${{ steps.version.outputs.version }}",
+              "repository": "hansef/slack-summarizer",
+              "sha256": "${{ steps.tarball.outputs.sha256 }}",
+              "tarball": "slack-summarizer-macos-arm64.tar.gz"
+            }

@@ -38,7 +38,7 @@ describe('env', () => {
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
       delete process.env.SLACK_USER_TOKEN;
 
-      expect(() => getEnv()).toThrow('Environment validation failed');
+      expect(() => getEnv()).toThrow('Configuration validation failed');
     });
 
     it('should throw error when SLACK_USER_TOKEN has wrong prefix', () => {
@@ -52,7 +52,7 @@ describe('env', () => {
       process.env.SLACK_USER_TOKEN = 'xoxp-test-token';
       delete process.env.ANTHROPIC_API_KEY;
 
-      expect(() => getEnv()).toThrow('Environment validation failed');
+      expect(() => getEnv()).toThrow('Configuration validation failed');
     });
 
     it('should throw error when ANTHROPIC_API_KEY has wrong prefix', () => {

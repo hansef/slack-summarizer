@@ -1,74 +1,54 @@
-import { config } from 'dotenv';
-import { z } from 'zod';
+/**
+ * Environment/Configuration utilities.
+ *
+ * This module provides backward compatibility with existing code that imports
+ * from `./env.js`. The actual configuration logic has moved to the config module
+ * which supports both environment variables and TOML config files.
+ *
+ * For new code, consider importing directly from '../config/index.js'.
+ */
 
-// Load environment variables from .env file
-config();
+import {
+  getConfig,
+  resetConfigCache,
+  type Config,
+  type LogLevel,
+  type ClaudeModel,
+} from '../config/index.js';
 
-const LogLevelSchema = z.enum(['debug', 'info', 'warn', 'error']);
-const ClaudeModelSchema = z.enum([
-  'claude-haiku-4-5-20251001',
-  'claude-sonnet-4-5-20250929',
-]);
+// Re-export types for backward compatibility
+export type { Config, LogLevel, ClaudeModel };
 
-const EnvSchema = z.object({
-  // Required
-  SLACK_USER_TOKEN: z
-    .string()
-    .min(1, 'SLACK_USER_TOKEN is required')
-    .startsWith('xoxp-', 'SLACK_USER_TOKEN must be a user token (starts with xoxp-)'),
-  ANTHROPIC_API_KEY: z
-    .string()
-    .min(1, 'ANTHROPIC_API_KEY is required')
-    .startsWith('sk-ant-', 'ANTHROPIC_API_KEY must start with sk-ant-'),
+// Backward compatibility aliases
+export type Env = Config;
 
-  // Optional with defaults
-  SLACK_SUMMARIZER_DB_PATH: z.string().default('./cache/slack.db'),
-  SLACK_SUMMARIZER_LOG_LEVEL: LogLevelSchema.default('info'),
-  SLACK_SUMMARIZER_CLAUDE_MODEL: ClaudeModelSchema.default('claude-haiku-4-5-20251001'),
-  SLACK_SUMMARIZER_TIMEZONE: z.string().default('America/Los_Angeles'),
-  SLACK_SUMMARIZER_RATE_LIMIT: z.coerce.number().positive().default(10),
-
-  // OpenAI embeddings (optional)
-  OPENAI_API_KEY: z.string().optional(),
-  SLACK_SUMMARIZER_ENABLE_EMBEDDINGS: z.coerce.boolean().default(false),
-  SLACK_SUMMARIZER_EMBEDDING_REF_WEIGHT: z.coerce.number().min(0).max(1).default(0.6),
-  SLACK_SUMMARIZER_EMBEDDING_EMB_WEIGHT: z.coerce.number().min(0).max(1).default(0.4),
-
-  // Concurrency settings for parallel processing
-  SLACK_SUMMARIZER_CHANNEL_CONCURRENCY: z.coerce.number().positive().default(10),
-  SLACK_SUMMARIZER_CLAUDE_CONCURRENCY: z.coerce.number().positive().default(20),
-  SLACK_SUMMARIZER_SLACK_CONCURRENCY: z.coerce.number().positive().default(10),
-});
-
-export type Env = z.infer<typeof EnvSchema>;
-export type LogLevel = z.infer<typeof LogLevelSchema>;
-export type ClaudeModel = z.infer<typeof ClaudeModelSchema>;
-
-let cachedEnv: Env | null = null;
-
+/**
+ * Get the validated configuration.
+ *
+ * This function merges configuration from multiple sources:
+ * 1. Environment variables (highest priority)
+ * 2. Config file (~/.config/slack-summarizer/config.toml)
+ * 3. Schema defaults (lowest priority)
+ *
+ * @returns The validated configuration object
+ * @throws Error if required configuration is missing or invalid
+ */
 export function getEnv(): Env {
-  if (cachedEnv) {
-    return cachedEnv;
-  }
-
-  const result = EnvSchema.safeParse(process.env);
-
-  if (!result.success) {
-    const errors = result.error.errors
-      .map((e) => `  - ${e.path.join('.')}: ${e.message}`)
-      .join('\n');
-    throw new Error(`Environment validation failed:\n${errors}`);
-  }
-
-  cachedEnv = result.data;
-  return cachedEnv;
+  return getConfig();
 }
 
+/**
+ * Validate configuration without returning it.
+ * Useful for early validation at startup.
+ */
 export function validateEnv(): void {
-  getEnv();
+  getConfig();
 }
 
-// For testing purposes - allows resetting the cached env
+/**
+ * Reset the cached configuration.
+ * Useful for testing or when configuration changes.
+ */
 export function resetEnvCache(): void {
-  cachedEnv = null;
+  resetConfigCache();
 }

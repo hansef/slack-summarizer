@@ -6,7 +6,7 @@ import { enrichConversations, ContextEnrichmentConfig, DEFAULT_ENRICHMENT_CONFIG
 import { fromSlackTimestamp, formatISO } from '../../utils/dates.js';
 import { logger } from '../../utils/logger.js';
 import { getEnv } from '../../utils/env.js';
-import { mapWithConcurrency } from '../../utils/concurrency.js';
+import { mapWithGlobalClaudeLimiter } from '../../utils/concurrency.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface HybridSegmentationConfig {
@@ -69,8 +69,9 @@ export async function hybridSegmentation(
     }
   }
 
-  // Process segments requiring semantic analysis in parallel
-  const analysisResults = await mapWithConcurrency(
+  // Process segments using the GLOBAL Claude concurrency limiter
+  // This ensures all Claude API calls across all channels share the same limit
+  const analysisResults = await mapWithGlobalClaudeLimiter(
     segmentsNeedingAnalysis,
     async (segment) => {
       const decisions = await analyzeConversationBoundaries(segment.messages);

@@ -191,14 +191,11 @@ export class SummarizationClient {
       return [];
     }
 
-    // For small batches, summarize individually for better quality
+    // For small batches, summarize individually for better quality (in parallel)
     if (groups.length <= 2) {
-      const results: ConversationSummary[] = [];
-      for (const group of groups) {
-        const summary = await this.summarizeGroup(group, userId, userDisplayNames, slackLinks);
-        results.push(summary);
-      }
-      return results;
+      return Promise.all(
+        groups.map((group) => this.summarizeGroup(group, userId, userDisplayNames, slackLinks))
+      );
     }
 
     // Pre-resolve all user IDs across all groups before building the prompt
@@ -267,12 +264,10 @@ export class SummarizationClient {
     userDisplayNames: Map<string, string>,
     slackLinks: Map<string, string>
   ): Promise<ConversationSummary[]> {
-    const results: ConversationSummary[] = [];
-    for (const group of groups) {
-      const summary = await this.summarizeGroup(group, userId, userDisplayNames, slackLinks);
-      results.push(summary);
-    }
-    return results;
+    // Process all groups in parallel when falling back to individual summarization
+    return Promise.all(
+      groups.map((group) => this.summarizeGroup(group, userId, userDisplayNames, slackLinks))
+    );
   }
 
   private async createFallbackSummary(

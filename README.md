@@ -61,6 +61,21 @@ Go to **OAuth & Permissions** in the sidebar, scroll to **User Token Scopes**, a
 
 ## Installation
 
+### Homebrew (macOS) - Recommended
+
+```bash
+# Add the tap
+brew tap hansef/tap
+
+# Install slack-summarizer
+brew install slack-summarizer
+
+# Run the interactive configuration wizard
+slack-summarizer configure
+```
+
+### From Source
+
 ```bash
 # Clone the repository
 git clone https://github.com/hansef/slack-summarizer.git
@@ -69,14 +84,31 @@ cd slack-summarizer
 # Install dependencies
 pnpm install
 
-# Set up environment variables
+# Build
+pnpm build
+
+# Run the configuration wizard
+pnpm dev:cli configure
+
+# Or set up environment variables manually
 cp .env.example .env
 # Edit .env with your tokens
 ```
 
 ## Configuration
 
-Create a `.env` file with the following variables:
+The easiest way to configure slack-summarizer is with the interactive wizard:
+
+```bash
+slack-summarizer configure
+```
+
+This creates a config file at `~/.config/slack-summarizer/config.toml` with your API keys and settings.
+
+### Environment Variables
+
+You can also use environment variables (these take precedence over the config file).
+Create a `.env` file or set these in your shell:
 
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|

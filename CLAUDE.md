@@ -40,6 +40,7 @@ Slack API → DataFetcher → Segmentation → Context Enrichment → Consolidat
 
 | Directory | Purpose | Key Files |
 |-----------|---------|-----------|
+| `src/config/` | Configuration loading from TOML files and env vars | `loader.ts` (merges sources), `schema.ts` (Zod), `writer.ts` (TOML output) |
 | `src/core/slack/` | Slack API client, data fetching | `client.ts` (WebClient + rate limiting), `fetcher.ts` (orchestration) |
 | `src/core/segmentation/` | Message → Conversation grouping | `hybrid.ts` (entry), `time-based.ts`, `semantic.ts`, `context-enricher.ts` |
 | `src/core/consolidation/` | Group related conversations | `consolidator.ts` (Union-Find), `reference-extractor.ts` |

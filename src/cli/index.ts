@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { summarizeCommand } from './commands/summarize.js';
 import { cacheCommand } from './commands/cache.js';
 import { testConnectionCommand } from './commands/test.js';
+import { configureCommand } from './commands/configure.js';
 import { registerCleanupHandlers } from '../core/cache/db.js';
 
 // Register cleanup handlers for graceful database shutdown
@@ -37,5 +38,11 @@ program
   .command('test-connection')
   .description('Test Slack and Claude API connections')
   .action(testConnectionCommand);
+
+program
+  .command('configure')
+  .description('Interactive configuration setup')
+  .option('--reset', 'Reset configuration (ignore existing values)')
+  .action(configureCommand);
 
 program.parse();
