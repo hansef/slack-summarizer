@@ -95,6 +95,8 @@ Create a `.env` file with the following variables:
 | `SLACK_SUMMARIZER_CLAUDE_CONCURRENCY` | No | Parallel Claude API calls limit | `20` |
 | `SLACK_SUMMARIZER_SLACK_CONCURRENCY` | No | Parallel Slack API calls limit | `10` |
 
+An OpenAI API key and turning on `SLACK_SUMMARIZER_ENABLE_EMBEDDINGS` is optional but HIGHLY recommmended as the resulting topic groupings will be far more thematically accurate.
+
 ## CLI Usage
 
 ### Generate Summary
@@ -279,14 +281,14 @@ src/
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              SLACK SUMMARIZER PIPELINE                           │
+│                              SLACK SUMMARIZER PIPELINE                          │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
                                     ┌─────────────┐
                                     │  Slack API  │
                                     └──────┬──────┘
                                            │
-                    ┌──────────────────────▼──────────────────────┐
+                    ┌──────────────────────▼───────────────────────┐
                     │              DATA FETCHER                    │
                     │         (src/core/slack/fetcher.ts)          │
                     │                                              │
@@ -294,12 +296,12 @@ src/
                     │  • Fetch history for active channels only    │
                     │  • 24-hour lookback for context              │
                     │  • Day-bucketed SQLite caching               │
-                    └──────────────────────┬──────────────────────┘
+                    └──────────────────────┬───────────────────────┘
                                            │
                                            ▼
                     ┌──────────────────────────────────────────────┐
-                    │              SEGMENTATION                     │
-                    │        (src/core/segmentation/)               │
+                    │              SEGMENTATION                    │
+                    │        (src/core/segmentation/)              │
                     │                                              │
                     │  ┌─────────────────────────────────────────┐ │
                     │  │ 1. Thread Separation                    │ │
@@ -324,12 +326,12 @@ src/
                     │  └─────────────────────────────────────────┘ │
                     │                                              │
                     │  Output: List of Conversation objects        │
-                    └──────────────────────┬──────────────────────┘
+                    └──────────────────────┬───────────────────────┘
                                            │
                                            ▼
                     ┌──────────────────────────────────────────────┐
-                    │              CONSOLIDATION                    │
-                    │        (src/core/consolidation/)              │
+                    │              CONSOLIDATION                   │
+                    │        (src/core/consolidation/)             │
                     │                                              │
                     │  ┌─────────────────────────────────────────┐ │
                     │  │ Pre-processing                          │ │
@@ -367,7 +369,7 @@ src/
                     │  └──────────────────┬──────────────────────┘ │
                     │                     ▼                        │
                     │  ┌─────────────────────────────────────────┐ │
-                    │  │ Union-Find Grouping (consolidator.ts)  │ │
+                    │  │ Union-Find Grouping (consolidator.ts)   │ │
                     │  │                                         │ │
                     │  │ Merge Strategies:                       │ │
                     │  │ • Adjacent: ≤15 min gap (unconditional) │ │
@@ -377,12 +379,12 @@ src/
                     │  └─────────────────────────────────────────┘ │
                     │                                              │
                     │  Output: ConversationGroup[]                 │
-                    └──────────────────────┬──────────────────────┘
+                    └──────────────────────┬───────────────────────┘
                                            │
                                            ▼
                     ┌──────────────────────────────────────────────┐
-                    │              SUMMARIZATION                    │
-                    │       (src/core/summarization/)               │
+                    │              SUMMARIZATION                   │
+                    │       (src/core/summarization/)              │
                     │                                              │
                     │  • Generate Slack permalinks                 │
                     │  • Enrich shared Slack message links         │
@@ -390,7 +392,7 @@ src/
                     │  • 2-4 sentence narrative story arcs         │
                     │  • Key events, references, outcomes          │
                     │  • Next actions and commitments              │
-                    └──────────────────────┬──────────────────────┘
+                    └──────────────────────┬───────────────────────┘
                                            │
                                            ▼
                               ┌────────────────────┐
