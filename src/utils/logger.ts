@@ -18,6 +18,9 @@ interface LogEntry {
 let progressMode = false;
 let lastProgressMessage = '';
 
+// Silent mode - suppresses all log output (for TUI mode)
+let silentMode = false;
+
 function shouldLog(level: LogLevel): boolean {
   const configuredLevel = getEnv().SLACK_SUMMARIZER_LOG_LEVEL;
   return LOG_LEVELS[level] >= LOG_LEVELS[configuredLevel];
@@ -60,7 +63,7 @@ function formatProgressMessage(message: string, context?: Record<string, unknown
 }
 
 function log(level: LogLevel, message: string, context?: Record<string, unknown>): void {
-  if (!shouldLog(level)) {
+  if (silentMode || !shouldLog(level)) {
     return;
   }
 
@@ -119,6 +122,11 @@ export const logger = {
 
   /** Check if progress mode is enabled */
   isProgressMode: () => progressMode,
+
+  /** Enable silent mode (suppresses all log output) */
+  setSilent: (silent: boolean) => {
+    silentMode = silent;
+  },
 
   /** Start a timing measurement */
   timeStart: (label: string) => {

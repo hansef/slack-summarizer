@@ -20,21 +20,37 @@ import {
   SlackAttachment,
 } from '../models/slack.js';
 
+export interface ProgressEvent {
+  stage: 'fetching' | 'segmenting' | 'consolidating' | 'summarizing' | 'complete';
+  message: string;
+  current?: number;
+  total?: number;
+}
+
+export type ProgressCallback = (event: ProgressEvent) => void;
+
 export interface AggregatorConfig {
   slackClient?: SlackClient;
   summarizationClient?: SummarizationClient;
   dataFetcher?: DataFetcher;
+  onProgress?: ProgressCallback;
 }
 
 export class SummaryAggregator {
   private slackClient: SlackClient;
   private summarizationClient: SummarizationClient;
   private dataFetcher: DataFetcher;
+  private onProgress?: ProgressCallback;
 
   constructor(config: AggregatorConfig = {}) {
     this.slackClient = config.slackClient ?? getSlackClient();
     this.summarizationClient = config.summarizationClient ?? getSummarizationClient();
     this.dataFetcher = config.dataFetcher ?? createDataFetcher();
+    this.onProgress = config.onProgress;
+  }
+
+  private emitProgress(event: ProgressEvent): void {
+    this.onProgress?.(event);
   }
 
   async generateSummary(
@@ -54,6 +70,7 @@ export class SummaryAggregator {
     });
 
     // Step 1: Fetch all user activity
+    this.emitProgress({ stage: 'fetching', message: 'Searching for Slack activity...' });
     logger.timeStart('generateSummary:fetchUserActivity');
     const activity = await this.dataFetcher.fetchUserActivity(targetUserId, timeRange);
     logger.timeEnd('generateSummary:fetchUserActivity', {
@@ -68,6 +85,7 @@ export class SummaryAggregator {
     logger.timeEnd('generateSummary:buildUserDisplayNames', { count: userDisplayNames.size });
 
     // Step 3: Group messages by channel, segment, consolidate, and summarize
+    this.emitProgress({ stage: 'segmenting', message: 'Processing conversations...', total: activity.channels.length });
     logger.info('Segmenting, consolidating, and summarizing conversations...');
     logger.timeStart('generateSummary:buildChannelSummaries');
     const channelSummaries = await this.buildChannelSummaries(
@@ -102,6 +120,7 @@ export class SummaryAggregator {
       channels: channelSummaries,
     };
 
+    this.emitProgress({ stage: 'complete', message: 'Summary complete' });
     logger.timeEnd('generateSummary:total', {
       channels: output.summary.total_channels,
       messages: output.summary.total_messages,
@@ -345,6 +364,12 @@ export class SummaryAggregator {
         );
 
         processedChannels++;
+        this.emitProgress({
+          stage: 'summarizing',
+          message: `#${channelName}`,
+          current: processedChannels,
+          total: totalChannels,
+        });
         logger.info('Processing channel', {
           progress: `${processedChannels}/${totalChannels}`,
           channel: channelName,
