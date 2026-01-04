@@ -59,12 +59,19 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           TARBALL_NAME="slack-summarizer-macos-arm64.tar.gz"
 
-          # Use pnpm deploy to create a standalone deployment with:
-          # - Only production dependencies (no dev deps like vitest/vite/rollup)
-          # - Resolved symlinks (no broken pnpm symlink structure)
-          pnpm deploy --prod release-staging/slack-summarizer
+          # Create staging directory with clean production install
+          mkdir -p release-staging/slack-summarizer
 
-          # Copy built dist files (pnpm deploy only copies package.json and node_modules)
+          # Copy package files for clean install
+          cp package.json pnpm-lock.yaml release-staging/slack-summarizer/
+
+          # Install only production dependencies in staging directory
+          # This excludes dev deps (vitest/vite/rollup) that have native binaries
+          cd release-staging/slack-summarizer
+          pnpm install --prod --frozen-lockfile
+          cd ../..
+
+          # Copy built dist files
           cp -r dist release-staging/slack-summarizer/
 
           # Copy schema.sql to the correct location (db.ts expects it relative to dist/core/cache/)
