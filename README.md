@@ -145,6 +145,46 @@ The MCP server exposes Slack functionality to Claude and other MCP clients.
 pnpm dev:mcp
 ```
 
+### Claude Code Integration
+
+To use as an MCP server in [Claude Code](https://claude.ai/code), add this to your settings file (`~/.claude/settings.json` or project `.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "slack-summarizer": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-v", "slack-summarizer-cache:/cache",
+        "ghcr.io/hansef/slack-summarizer:latest"
+      ],
+      "env": {
+        "SLACK_USER_TOKEN": "xoxp-your-token",
+        "ANTHROPIC_API_KEY": "sk-ant-your-key",
+        "SLACK_SUMMARIZER_TIMEZONE": "America/Los_Angeles"
+      }
+    }
+  }
+}
+```
+
+Pull the image first:
+
+```bash
+docker pull ghcr.io/hansef/slack-summarizer:latest
+```
+
+Then restart Claude Code to load the MCP server.
+
+**Optional environment variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | Enable semantic embeddings for better conversation grouping |
+| `SLACK_SUMMARIZER_ENABLE_EMBEDDINGS` | Set to `true` with OpenAI key |
+| `SLACK_SUMMARIZER_CLAUDE_MODEL` | `claude-haiku-4-5-20251001` (default) or `claude-sonnet-4-5-20250929` |
+
 ### Available Tools
 
 #### High-Level Tools
