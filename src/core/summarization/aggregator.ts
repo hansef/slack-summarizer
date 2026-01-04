@@ -7,6 +7,7 @@ import { SummarizationClient, getSummarizationClient } from './client.js';
 import { logger } from '../../utils/logger.js';
 import { getEnv } from '../../utils/env.js';
 import { parseTimespan, formatISO, now } from '../../utils/dates.js';
+import { mapWithConcurrency } from '../../utils/concurrency.js';
 import {
   SummaryOutput,
   ChannelSummary,
@@ -311,107 +312,127 @@ export class SummaryAggregator {
 
     const totalChannels = channelIds.size;
     let processedChannels = 0;
+    const env = getEnv();
+    const channelConcurrency = env.SLACK_SUMMARIZER_CHANNEL_CONCURRENCY;
 
-    for (const channelId of channelIds) {
-      processedChannels++;
-      const channelInfo = channelInfoMap.get(channelId);
-      const channelType = channelInfo ? getChannelType(channelInfo) : 'public_channel';
-      const channelName = await this.resolveChannelDisplayName(
-        channelInfo,
-        channelId,
-        userId,
-        userDisplayNames
-      );
+    logger.info('Processing channels in parallel', {
+      totalChannels,
+      concurrency: channelConcurrency,
+    });
 
-      logger.info('Processing channel', {
-        progress: `${processedChannels}/${totalChannels}`,
-        channel: channelName,
-      });
+    // Process channels in parallel with concurrency limit
+    const channelIdArray = Array.from(channelIds);
+    const results = await mapWithConcurrency(
+      channelIdArray,
+      async (channelId) => {
+        const channelInfo = channelInfoMap.get(channelId);
+        const channelType = channelInfo ? getChannelType(channelInfo) : 'public_channel';
+        const channelName = await this.resolveChannelDisplayName(
+          channelInfo,
+          channelId,
+          userId,
+          userDisplayNames
+        );
 
-      const messages = messagesByChannel.get(channelId) ?? [];
-      const mentions = mentionsByChannel.get(channelId) ?? [];
-      const threads = threadsByChannel.get(channelId) ?? [];
-      const allChannelMsgs = allMessagesByChannel.get(channelId) ?? [];
-
-      // Step 1: Segment conversations using hybrid approach
-      // Pass all channel messages for context enrichment
-      const segmentResult = await hybridSegmentation(
-        messages,
-        threads,
-        channelId,
-        channelName,
-        userId,
-        allChannelMsgs
-      );
-
-      logger.debug('Segmented channel', {
-        channel: channelName,
-        conversations: segmentResult.conversations.length,
-      });
-
-      // Step 2: Consolidate related conversations (with optional embedding-based similarity)
-      const env = getEnv();
-      const enableEmbeddings = env.SLACK_SUMMARIZER_ENABLE_EMBEDDINGS && !!env.OPENAI_API_KEY;
-      if (env.SLACK_SUMMARIZER_ENABLE_EMBEDDINGS && !env.OPENAI_API_KEY) {
-        logger.warn('Embeddings enabled but OPENAI_API_KEY not set, falling back to reference-only');
-      }
-      const consolidationResult = await consolidateConversations(segmentResult.conversations, {
-        embeddings: {
-          enabled: enableEmbeddings,
-          referenceWeight: env.SLACK_SUMMARIZER_EMBEDDING_REF_WEIGHT,
-          embeddingWeight: env.SLACK_SUMMARIZER_EMBEDDING_EMB_WEIGHT,
-        },
-        requestingUserId: userId,
-      });
-
-      logger.info('Consolidated channel', {
-        channel: channelName,
-        originalSegments: segmentResult.conversations.length,
-        consolidatedTopics: consolidationResult.groups.length,
-        botsMerged: consolidationResult.stats.botConversationsMerged,
-        trivialsDropped: consolidationResult.stats.trivialConversationsDropped,
-      });
-
-      // Step 3: Generate permalinks for each group
-      const slackLinks = await this.generateGroupSlackLinks(
-        consolidationResult.groups,
-        channelId
-      );
-
-      // Step 3.5: Enrich Slack links by fetching linked message content
-      await this.enrichSlackLinks(consolidationResult.groups);
-
-      // Step 4: Summarize consolidated groups
-      const topicSummaries = await this.summarizeGroups(
-        consolidationResult.groups,
-        userId,
-        userDisplayNames,
-        slackLinks
-      );
-
-      // Only include channels where user actively participated (sent messages or threads)
-      // Exclude channels where user was only mentioned but didn't participate
-      if (messages.length > 0 || threads.length > 0) {
-        channelSummaries.push({
-          channel_id: channelId,
-          channel_name: channelName,
-          channel_type: channelType,
-          interactions: {
-            messages_sent: messages.length,
-            mentions_received: mentions.length,
-            threads: threads.length,
-          },
-          topics: topicSummaries,
-          consolidation_stats: {
-            original_segments: segmentResult.conversations.length,
-            consolidated_topics: consolidationResult.groups.length,
-            bot_messages_merged: consolidationResult.stats.botConversationsMerged,
-            trivial_messages_merged: consolidationResult.stats.trivialConversationsMerged,
-            adjacent_merged: consolidationResult.stats.adjacentMerged,
-            proximity_merged: consolidationResult.stats.proximityMerged,
-            same_author_merged: consolidationResult.stats.sameAuthorMerged,
-          },
+        processedChannels++;
+        logger.info('Processing channel', {
+          progress: `${processedChannels}/${totalChannels}`,
+          channel: channelName,
         });
+
+        const messages = messagesByChannel.get(channelId) ?? [];
+        const mentions = mentionsByChannel.get(channelId) ?? [];
+        const threads = threadsByChannel.get(channelId) ?? [];
+        const allChannelMsgs = allMessagesByChannel.get(channelId) ?? [];
+
+        // Step 1: Segment conversations using hybrid approach
+        // Pass all channel messages for context enrichment
+        const segmentResult = await hybridSegmentation(
+          messages,
+          threads,
+          channelId,
+          channelName,
+          userId,
+          allChannelMsgs
+        );
+
+        logger.debug('Segmented channel', {
+          channel: channelName,
+          conversations: segmentResult.conversations.length,
+        });
+
+        // Step 2: Consolidate related conversations (with optional embedding-based similarity)
+        const enableEmbeddings = env.SLACK_SUMMARIZER_ENABLE_EMBEDDINGS && !!env.OPENAI_API_KEY;
+        if (env.SLACK_SUMMARIZER_ENABLE_EMBEDDINGS && !env.OPENAI_API_KEY) {
+          logger.warn('Embeddings enabled but OPENAI_API_KEY not set, falling back to reference-only');
+        }
+        const consolidationResult = await consolidateConversations(segmentResult.conversations, {
+          embeddings: {
+            enabled: enableEmbeddings,
+            referenceWeight: env.SLACK_SUMMARIZER_EMBEDDING_REF_WEIGHT,
+            embeddingWeight: env.SLACK_SUMMARIZER_EMBEDDING_EMB_WEIGHT,
+          },
+          requestingUserId: userId,
+        });
+
+        logger.info('Consolidated channel', {
+          channel: channelName,
+          originalSegments: segmentResult.conversations.length,
+          consolidatedTopics: consolidationResult.groups.length,
+          botsMerged: consolidationResult.stats.botConversationsMerged,
+          trivialsDropped: consolidationResult.stats.trivialConversationsDropped,
+        });
+
+        // Step 3: Generate permalinks for each group
+        const slackLinks = await this.generateGroupSlackLinks(
+          consolidationResult.groups,
+          channelId
+        );
+
+        // Step 3.5: Enrich Slack links by fetching linked message content
+        await this.enrichSlackLinks(consolidationResult.groups);
+
+        // Step 4: Summarize consolidated groups
+        const topicSummaries = await this.summarizeGroups(
+          consolidationResult.groups,
+          userId,
+          userDisplayNames,
+          slackLinks
+        );
+
+        // Only include channels where user actively participated (sent messages or threads)
+        // Exclude channels where user was only mentioned but didn't participate
+        if (messages.length > 0 || threads.length > 0) {
+          return {
+            channel_id: channelId,
+            channel_name: channelName,
+            channel_type: channelType,
+            interactions: {
+              messages_sent: messages.length,
+              mentions_received: mentions.length,
+              threads: threads.length,
+            },
+            topics: topicSummaries,
+            consolidation_stats: {
+              original_segments: segmentResult.conversations.length,
+              consolidated_topics: consolidationResult.groups.length,
+              bot_messages_merged: consolidationResult.stats.botConversationsMerged,
+              trivial_messages_merged: consolidationResult.stats.trivialConversationsMerged,
+              adjacent_merged: consolidationResult.stats.adjacentMerged,
+              proximity_merged: consolidationResult.stats.proximityMerged,
+              same_author_merged: consolidationResult.stats.sameAuthorMerged,
+            },
+          } as ChannelSummary;
+        }
+        return null;
+      },
+      channelConcurrency
+    );
+
+    // Filter out nulls and add to channelSummaries
+    for (const result of results) {
+      if (result !== null) {
+        channelSummaries.push(result);
       }
     }
 
@@ -431,28 +452,39 @@ export class SummaryAggregator {
   ): Promise<Map<string, string>> {
     const slackLinks = new Map<string, string>();
     const fallbackLink = `https://slack.com/archives/${channelId}`;
+    const slackConcurrency = getEnv().SLACK_SUMMARIZER_SLACK_CONCURRENCY;
 
+    // Collect all conversations that need permalinks
+    const conversationsToLink: Array<{ convId: string; messageTs: string }> = [];
     for (const group of groups) {
-      // Generate links for each original conversation in the group
       for (const conv of group.conversations) {
-        try {
-          const firstMessage = conv.messages[0];
-          if (firstMessage) {
-            const link = await this.slackClient.getPermalink(channelId, firstMessage.ts);
-            slackLinks.set(conv.id, link);
-          } else {
-            slackLinks.set(conv.id, fallbackLink);
-          }
-        } catch (error) {
-          logger.warn('Failed to get permalink', {
-            channelId,
-            conversationId: conv.id,
-            error: error instanceof Error ? error.message : String(error),
-          });
+        const firstMessage = conv.messages[0];
+        if (firstMessage) {
+          conversationsToLink.push({ convId: conv.id, messageTs: firstMessage.ts });
+        } else {
           slackLinks.set(conv.id, fallbackLink);
         }
       }
     }
+
+    // Fetch permalinks in parallel
+    await mapWithConcurrency(
+      conversationsToLink,
+      async ({ convId, messageTs }) => {
+        try {
+          const link = await this.slackClient.getPermalink(channelId, messageTs);
+          slackLinks.set(convId, link);
+        } catch (error) {
+          logger.warn('Failed to get permalink', {
+            channelId,
+            conversationId: convId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          slackLinks.set(convId, fallbackLink);
+        }
+      },
+      slackConcurrency
+    );
 
     return slackLinks;
   }
@@ -499,7 +531,16 @@ export class SummaryAggregator {
    */
   private async enrichSlackLinks(groups: ConversationGroup[]): Promise<void> {
     const fetchedLinks = new Map<string, SlackAttachment | null>();
-    let enrichedCount = 0;
+    const slackConcurrency = getEnv().SLACK_SUMMARIZER_SLACK_CONCURRENCY;
+
+    // Collect all unique links that need to be fetched
+    const linksToFetch: Array<{
+      cacheKey: string;
+      channelId: string;
+      messageTs: string;
+      raw: string;
+    }> = [];
+    const seenKeys = new Set<string>();
 
     for (const group of groups) {
       for (const msg of group.allMessages) {
@@ -512,50 +553,73 @@ export class SummaryAggregator {
         const hasExistingAttachments = msg.attachments && msg.attachments.length > 0;
         if (hasExistingAttachments) continue;
 
-        // Fetch each linked message and add as attachment
-        const newAttachments: SlackAttachment[] = [];
-
         for (const link of links) {
           const cacheKey = `${link.channelId}:${link.messageTs}`;
-
-          // Check cache first
-          if (fetchedLinks.has(cacheKey)) {
-            const cached = fetchedLinks.get(cacheKey);
-            if (cached) newAttachments.push(cached);
-            continue;
-          }
-
-          // Fetch the linked message
-          try {
-            const linkedMessage = await this.slackClient.getMessage(
-              link.channelId,
-              link.messageTs
-            );
-
-            if (linkedMessage && linkedMessage.text) {
-              const attachment: SlackAttachment = {
-                text: linkedMessage.text,
-                author_id: linkedMessage.user,
-                channel_id: link.channelId,
-                from_url: link.raw,
-              };
-              newAttachments.push(attachment);
-              fetchedLinks.set(cacheKey, attachment);
-              enrichedCount++;
-            } else {
-              fetchedLinks.set(cacheKey, null);
-            }
-          } catch (error) {
-            logger.warn('Failed to fetch linked Slack message', {
+          if (!seenKeys.has(cacheKey)) {
+            seenKeys.add(cacheKey);
+            linksToFetch.push({
+              cacheKey,
               channelId: link.channelId,
               messageTs: link.messageTs,
-              error: error instanceof Error ? error.message : String(error),
+              raw: link.raw,
             });
+          }
+        }
+      }
+    }
+
+    // Fetch all links in parallel
+    await mapWithConcurrency(
+      linksToFetch,
+      async ({ cacheKey, channelId, messageTs, raw }) => {
+        try {
+          const linkedMessage = await this.slackClient.getMessage(channelId, messageTs);
+
+          if (linkedMessage && linkedMessage.text) {
+            const attachment: SlackAttachment = {
+              text: linkedMessage.text,
+              author_id: linkedMessage.user,
+              channel_id: channelId,
+              from_url: raw,
+            };
+            fetchedLinks.set(cacheKey, attachment);
+          } else {
             fetchedLinks.set(cacheKey, null);
+          }
+        } catch (error) {
+          logger.warn('Failed to fetch linked Slack message', {
+            channelId,
+            messageTs,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          fetchedLinks.set(cacheKey, null);
+        }
+      },
+      slackConcurrency
+    );
+
+    // Apply fetched attachments to messages
+    let enrichedCount = 0;
+    for (const group of groups) {
+      for (const msg of group.allMessages) {
+        const text = msg.text || '';
+        const links = parseSlackMessageLinks(text);
+
+        if (links.length === 0) continue;
+
+        const hasExistingAttachments = msg.attachments && msg.attachments.length > 0;
+        if (hasExistingAttachments) continue;
+
+        const newAttachments: SlackAttachment[] = [];
+        for (const link of links) {
+          const cacheKey = `${link.channelId}:${link.messageTs}`;
+          const cached = fetchedLinks.get(cacheKey);
+          if (cached) {
+            newAttachments.push(cached);
+            enrichedCount++;
           }
         }
 
-        // Add fetched attachments to the message
         if (newAttachments.length > 0) {
           msg.attachments = [...(msg.attachments || []), ...newAttachments];
         }

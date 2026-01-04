@@ -33,6 +33,11 @@ const EnvSchema = z.object({
   SLACK_SUMMARIZER_ENABLE_EMBEDDINGS: z.coerce.boolean().default(false),
   SLACK_SUMMARIZER_EMBEDDING_REF_WEIGHT: z.coerce.number().min(0).max(1).default(0.6),
   SLACK_SUMMARIZER_EMBEDDING_EMB_WEIGHT: z.coerce.number().min(0).max(1).default(0.4),
+
+  // Concurrency settings for parallel processing
+  SLACK_SUMMARIZER_CHANNEL_CONCURRENCY: z.coerce.number().positive().default(10),
+  SLACK_SUMMARIZER_CLAUDE_CONCURRENCY: z.coerce.number().positive().default(20),
+  SLACK_SUMMARIZER_SLACK_CONCURRENCY: z.coerce.number().positive().default(10),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

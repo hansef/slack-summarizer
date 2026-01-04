@@ -22,6 +22,7 @@ import {
 } from '../cache/messages.js';
 import { DateTime } from 'luxon';
 import { getEnv } from '../../utils/env.js';
+import { mapWithConcurrency } from '../../utils/concurrency.js';
 
 export interface FetcherOptions {
   client?: SlackClient;
@@ -83,21 +84,36 @@ export class DataFetcher {
 
     const totalChannels = channels.length;
     let processedChannels = 0;
+    const slackConcurrency = getEnv().SLACK_SUMMARIZER_SLACK_CONCURRENCY;
 
-    for (const channel of channels) {
-      processedChannels++;
-      logger.info('Fetching channel messages', {
-        progress: `${processedChannels}/${totalChannels}`,
-        channelName: channel.name,
-      });
+    logger.info('Fetching channel messages in parallel', {
+      totalChannels,
+      concurrency: slackConcurrency,
+    });
 
-      const channelMessages = await this.fetchChannelMessages(
-        channel.id,
-        targetUserId,
-        extendedTimeRange
-      );
+    // Fetch channel messages in parallel
+    const channelResults = await mapWithConcurrency(
+      channels,
+      async (channel) => {
+        processedChannels++;
+        logger.info('Fetching channel messages', {
+          progress: `${processedChannels}/${totalChannels}`,
+          channelName: channel.name,
+        });
 
-      // Separate user's messages
+        const channelMessages = await this.fetchChannelMessages(
+          channel.id,
+          targetUserId,
+          extendedTimeRange
+        );
+
+        return { channelId: channel.id, messages: channelMessages };
+      },
+      slackConcurrency
+    );
+
+    // Process results
+    for (const { channelId, messages: channelMessages } of channelResults) {
       for (const msg of channelMessages.allMessages) {
         allMessages.push(msg);
         if (msg.user === targetUserId) {
@@ -106,25 +122,33 @@ export class DataFetcher {
 
         // Also track threads from channel history (in case we missed any)
         if (msg.thread_ts && msg.user === targetUserId) {
-          threadTsSet.add(`${channel.id}:${msg.thread_ts}`);
+          threadTsSet.add(`${channelId}:${msg.thread_ts}`);
         }
       }
     }
 
-    // Step 3: Fetch full threads the user participated in
-    logger.info('Fetching thread details', {
+    // Step 3: Fetch full threads the user participated in (in parallel)
+    logger.info('Fetching thread details in parallel', {
       threadCount: threadTsSet.size,
+      concurrency: slackConcurrency,
     });
 
-    for (const threadKey of threadTsSet) {
-      const [channelId, threadTs] = threadKey.split(':');
-      const threadMessages = await this.fetchThreadReplies(channelId, threadTs);
-      threadsParticipated.push({
-        threadTs,
-        channel: channelId,
-        messages: threadMessages,
-      });
-    }
+    const threadKeys = Array.from(threadTsSet);
+    const threadResults = await mapWithConcurrency(
+      threadKeys,
+      async (threadKey) => {
+        const [channelId, threadTs] = threadKey.split(':');
+        const threadMessages = await this.fetchThreadReplies(channelId, threadTs);
+        return {
+          threadTs,
+          channel: channelId,
+          messages: threadMessages,
+        };
+      },
+      slackConcurrency
+    );
+
+    threadsParticipated.push(...threadResults);
 
     // Step 4: Fetch @mentions
     const mentionsReceived = await this.fetchMentions(targetUserId, timeRange);

@@ -5,6 +5,8 @@ import { analyzeConversationBoundaries, applyBoundaryDecisions } from './semanti
 import { enrichConversations, ContextEnrichmentConfig, DEFAULT_ENRICHMENT_CONFIG } from './context-enricher.js';
 import { fromSlackTimestamp, formatISO } from '../../utils/dates.js';
 import { logger } from '../../utils/logger.js';
+import { getEnv } from '../../utils/env.js';
+import { mapWithConcurrency } from '../../utils/concurrency.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface HybridSegmentationConfig {
@@ -52,34 +54,49 @@ export async function hybridSegmentation(
     gapThresholdMinutes: cfg.gapThresholdMinutes,
   });
 
-  // Step 4: Refine segments with semantic analysis
-  let semanticSplits = 0;
-  const refinedConversations: Conversation[] = [];
+  // Step 4: Refine segments with semantic analysis (in parallel)
+  const claudeConcurrency = getEnv().SLACK_SUMMARIZER_CLAUDE_CONCURRENCY;
+
+  // Separate segments that need semantic analysis from those that don't
+  const segmentsNeedingAnalysis: Conversation[] = [];
+  const smallSegments: Conversation[] = [];
 
   for (const segment of timeSegments) {
     if (segment.messages.length < cfg.minMessagesForSemantic) {
-      // Too few messages, keep as-is
-      refinedConversations.push(segment);
-      continue;
-    }
-
-    // Apply semantic analysis
-    const decisions = await analyzeConversationBoundaries(segment.messages);
-    const boundaries = applyBoundaryDecisions(
-      segment.messages,
-      decisions,
-      cfg.semanticConfidenceThreshold
-    );
-
-    if (boundaries.length === 0) {
-      // No semantic boundaries found
-      refinedConversations.push(segment);
+      smallSegments.push(segment);
     } else {
-      // Split based on semantic boundaries
-      semanticSplits += boundaries.length;
-      const subConversations = splitByBoundaries(segment, boundaries, userId);
-      refinedConversations.push(...subConversations);
+      segmentsNeedingAnalysis.push(segment);
     }
+  }
+
+  // Process segments requiring semantic analysis in parallel
+  const analysisResults = await mapWithConcurrency(
+    segmentsNeedingAnalysis,
+    async (segment) => {
+      const decisions = await analyzeConversationBoundaries(segment.messages);
+      const boundaries = applyBoundaryDecisions(
+        segment.messages,
+        decisions,
+        cfg.semanticConfidenceThreshold
+      );
+
+      if (boundaries.length === 0) {
+        return { conversations: [segment], splits: 0 };
+      } else {
+        const subConversations = splitByBoundaries(segment, boundaries, userId);
+        return { conversations: subConversations, splits: boundaries.length };
+      }
+    },
+    claudeConcurrency
+  );
+
+  // Combine results
+  const refinedConversations: Conversation[] = [...smallSegments];
+  let semanticSplits = 0;
+
+  for (const result of analysisResults) {
+    refinedConversations.push(...result.conversations);
+    semanticSplits += result.splits;
   }
 
   // Step 5: Combine all conversations
