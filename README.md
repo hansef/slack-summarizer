@@ -114,6 +114,12 @@ pnpm dev:cli summarize --model sonnet
 
 # Output to a specific file
 pnpm dev:cli summarize --output ./my-summary.json
+
+# Output to stdout (for piping)
+pnpm dev:cli summarize -o - | jq '.summary'
+
+# Output markdown to stdout
+pnpm dev:cli summarize -f markdown -o -
 ```
 
 ### CLI Commands
@@ -131,7 +137,7 @@ pnpm dev:cli summarize --output ./my-summary.json
 |--------|-------------|---------|
 | `-d, --date <date>` | Target date (today, yesterday, YYYY-MM-DD) | `today` |
 | `-s, --span <span>` | Time span (day, week) | `day` |
-| `-o, --output <file>` | Output file path | `./slack-summary.json` |
+| `-o, --output <file>` | Output file path (use `-` for stdout) | `./slack-summary.json` |
 | `-m, --model <model>` | Claude model (haiku, sonnet) | `haiku` |
 | `-u, --user <userId>` | Slack user ID | Token owner |
 
