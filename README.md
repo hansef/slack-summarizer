@@ -175,6 +175,31 @@ When `CLAUDE_CODE_OAUTH_TOKEN` is set:
 
 > **Note:** If both `ANTHROPIC_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN` are set, the OAuth token takes priority.
 
+## OpenAI API Key Setup (Optional)
+
+OpenAI embeddings significantly improve conversation grouping by detecting semantic relationships even without shared explicit references. This is highly recommended for better summary quality.
+
+1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+2. Sign in or create an account
+3. Click **Create new secret key** and copy it
+
+Add the key to your environment:
+
+```bash
+export OPENAI_API_KEY="sk-your-key-here"
+export SLACK_SUMMARIZER_ENABLE_EMBEDDINGS=true
+```
+
+Or add to your config file (`~/.config/slack-summarizer/config.toml`):
+
+```toml
+[openai]
+api_key = "sk-your-key-here"
+
+[embeddings]
+enabled = true
+```
+
 ## Installation
 
 ### Option 1: Homebrew (macOS ARM64)
