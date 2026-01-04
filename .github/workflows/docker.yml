@@ -11,6 +11,10 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      # Dummy values for tests (validated but not used)
+      SLACK_USER_TOKEN: xoxp-test-token-for-ci
+      ANTHROPIC_API_KEY: sk-ant-test-key-for-ci
     steps:
       - name: Checkout
         uses: actions/checkout@v4
