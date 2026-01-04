@@ -64,15 +64,7 @@ Each user needs to create their own Slack app to get a user token. This is requi
 ```json
 {
   "display_information": {
-    "name": "Slack Summarizer",
-    "description": "Personal Slack activity summarizer using Claude AI",
-    "background_color": "#4A154B"
-  },
-  "features": {
-    "bot_user": {
-      "display_name": "Slack Summarizer",
-      "always_online": false
-    }
+    "name": "Slack Summarizer"
   },
   "oauth_config": {
     "scopes": {
