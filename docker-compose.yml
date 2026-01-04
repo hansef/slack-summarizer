@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  slack-summarizer:
+    build: .
+    image: slack-summarizer:latest
+    environment:
+      - SLACK_USER_TOKEN=${SLACK_USER_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SLACK_SUMMARIZER_DB_PATH=/cache/slack.db
+      - SLACK_SUMMARIZER_LOG_LEVEL=info
+    volumes:
+      - ./cache:/cache
+    stdin_open: true
+    tty: true
+
+  cli-test:
+    image: slack-summarizer:latest
+    entrypoint: ["node", "dist/cli/index.js"]
+    environment:
+      - SLACK_USER_TOKEN=${SLACK_USER_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SLACK_SUMMARIZER_DB_PATH=/cache/slack.db
+    volumes:
+      - ./cache:/cache
+      - ./output:/output
+    command: ["summarize", "--date", "yesterday", "-o", "/output/summary.json"]

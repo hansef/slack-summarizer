@@ -1,0 +1,57 @@
+{
+  "name": "slack-summarizer",
+  "version": "1.0.0",
+  "description": "Comprehensive Slack activity summarization with CLI and MCP server interfaces",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "slack-summarizer": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev:cli": "tsx src/cli/index.ts",
+    "dev:mcp": "tsx src/mcp/server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "docker:build": "docker build -t slack-summarizer:latest .",
+    "docker:cli": "docker-compose run --rm cli-test",
+    "docker:mcp": "docker-compose up slack-summarizer"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "openai": "^4.77.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@slack/web-api": "^7.0.0",
+    "better-sqlite3": "^11.0.0",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "dotenv": "^16.4.0",
+    "luxon": "^3.5.0",
+    "uuid": "^13.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/luxon": "^3.4.0",
+    "@types/node": "^20.0.0",
+    "@types/uuid": "^11.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
