@@ -147,10 +147,14 @@ pnpm dev:mcp
 
 ### Claude Code Integration
 
-To use as an MCP server in [Claude Code](https://claude.ai/code), add to the `mcpServers` object in `~/.claude.json`:
+To use as an MCP server in [Claude Code](https://claude.ai/code):
 
-```json
-"slack-summarizer": {
+```bash
+# Pull the image
+docker pull ghcr.io/hansef/slack-summarizer:latest
+
+# Add to Claude Code
+claude mcp add-json slack-summarizer '{
   "type": "stdio",
   "command": "docker",
   "args": [
@@ -161,13 +165,7 @@ To use as an MCP server in [Claude Code](https://claude.ai/code), add to the `mc
     "-e", "SLACK_SUMMARIZER_TIMEZONE=America/Los_Angeles",
     "ghcr.io/hansef/slack-summarizer:latest"
   ]
-}
-```
-
-Pull the image first:
-
-```bash
-docker pull ghcr.io/hansef/slack-summarizer:latest
+}'
 ```
 
 Then restart Claude Code to load the MCP server.
