@@ -16,6 +16,11 @@ interface SummarizeOptions {
 }
 
 function buildTimespan(date: string, span: string): string {
+  // If span is an explicit date range (YYYY-MM-DD..YYYY-MM-DD), use it directly
+  if (span.includes('..')) {
+    return span;
+  }
+
   // Handle relative dates
   if (date === 'today') {
     return span === 'week' ? 'last-week' : 'today';
