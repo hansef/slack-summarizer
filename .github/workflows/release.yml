@@ -59,13 +59,13 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           TARBALL_NAME="slack-summarizer-macos-arm64.tar.gz"
 
-          # Create staging directory
-          mkdir -p release-staging/slack-summarizer
+          # Use pnpm deploy to create a standalone deployment with:
+          # - Only production dependencies (no dev deps like vitest/vite/rollup)
+          # - Resolved symlinks (no broken pnpm symlink structure)
+          pnpm deploy --prod release-staging/slack-summarizer
 
-          # Copy built files
+          # Copy built dist files (pnpm deploy only copies package.json and node_modules)
           cp -r dist release-staging/slack-summarizer/
-          cp -r node_modules release-staging/slack-summarizer/
-          cp package.json release-staging/slack-summarizer/
 
           # Copy schema.sql to the correct location (db.ts expects it relative to dist/core/cache/)
           mkdir -p release-staging/slack-summarizer/dist/core/cache
