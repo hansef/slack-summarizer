@@ -14,6 +14,10 @@ interface LogEntry {
   context?: Record<string, unknown>;
 }
 
+// Progress mode state
+let progressMode = false;
+let lastProgressMessage = '';
+
 function shouldLog(level: LogLevel): boolean {
   const configuredLevel = getEnv().SLACK_SUMMARIZER_LOG_LEVEL;
   return LOG_LEVELS[level] >= LOG_LEVELS[configuredLevel];
@@ -35,8 +39,37 @@ function formatLog(entry: LogEntry, pretty: boolean): string {
   return JSON.stringify(entry);
 }
 
+function formatProgressMessage(message: string, context?: Record<string, unknown>): string {
+  let status = message;
+  if (context) {
+    // Extract useful progress info from context
+    if (typeof context.progress === 'string' || typeof context.progress === 'number') {
+      status += ` (${String(context.progress)})`;
+    } else if (typeof context.count === 'number') {
+      status += ` [${context.count}]`;
+    } else if (typeof context.channelName === 'string') {
+      status += `: ${context.channelName}`;
+    }
+  }
+  // Truncate to terminal width (leave room for spinner)
+  const maxWidth = (process.stderr.columns || 80) - 4;
+  if (status.length > maxWidth) {
+    status = status.slice(0, maxWidth - 3) + '...';
+  }
+  return status;
+}
+
 function log(level: LogLevel, message: string, context?: Record<string, unknown>): void {
   if (!shouldLog(level)) {
+    return;
+  }
+
+  // Progress mode: single-line updating status on stderr
+  if (progressMode && level !== 'error') {
+    const status = formatProgressMessage(message, context);
+    // Clear line and write new status
+    process.stderr.write(`\r\x1b[K⏳ ${status}`);
+    lastProgressMessage = status;
     return;
   }
 
@@ -64,6 +97,25 @@ export const logger = {
   info: (message: string, context?: Record<string, unknown>) => log('info', message, context),
   warn: (message: string, context?: Record<string, unknown>) => log('warn', message, context),
   error: (message: string, context?: Record<string, unknown>) => log('error', message, context),
+
+  /** Enable progress mode for single-line updating status */
+  enableProgressMode: () => {
+    progressMode = true;
+    lastProgressMessage = '';
+  },
+
+  /** Disable progress mode and clear the progress line */
+  disableProgressMode: () => {
+    if (progressMode && lastProgressMessage) {
+      // Clear the progress line
+      process.stderr.write('\r\x1b[K');
+    }
+    progressMode = false;
+    lastProgressMessage = '';
+  },
+
+  /** Check if progress mode is enabled */
+  isProgressMode: () => progressMode,
 };
 
 export type Logger = typeof logger;

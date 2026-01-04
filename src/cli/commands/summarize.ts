@@ -50,8 +50,10 @@ export async function summarizeCommand(options: SummarizeOptions): Promise<void>
   const startTime = Date.now();
   const useStdout = options.output === '-';
 
-  // Suppress status messages when outputting to stdout
-  if (!useStdout) {
+  // Suppress status messages when outputting to stdout, use progress mode instead
+  if (useStdout) {
+    logger.enableProgressMode();
+  } else {
     output.info('Starting Slack activity summary...');
     output.info(`Date: ${options.date}, Span: ${options.span}, Format: ${options.format}`);
     output.info(`Model: ${options.model}`);
@@ -74,6 +76,8 @@ export async function summarizeCommand(options: SummarizeOptions): Promise<void>
       : JSON.stringify(summary, null, 2);
 
     if (useStdout) {
+      // Disable progress mode before writing output
+      logger.disableProgressMode();
       // Write to stdout
       process.stdout.write(content);
       if (!content.endsWith('\n')) {
@@ -116,6 +120,8 @@ export async function summarizeCommand(options: SummarizeOptions): Promise<void>
       output.success(`Completed in ${duration}s`);
     }
   } catch (error) {
+    // Ensure progress mode is disabled before showing error
+    logger.disableProgressMode();
     logger.error('Summarization failed', {
       error: error instanceof Error ? error.message : String(error),
     });
