@@ -16,8 +16,7 @@ A comprehensive Slack activity summarization tool that fetches your Slack activi
 # Option 1: Homebrew (macOS ARM64)
 brew tap hansef/tap
 brew install slack-summarizer
-slack-summarizer configure
-slack-summarizer summarize
+slack-summarizer              # launches interactive TUI with setup wizard
 
 # Option 2: MCP Server (any platform with Docker)
 docker pull ghcr.io/hansef/slack-summarizer:latest
@@ -26,12 +25,12 @@ claude mcp add slack-summarizer  # then configure (see MCP section below)
 # Option 3: From Source
 git clone https://github.com/hansef/slack-summarizer.git
 cd slack-summarizer && pnpm install && pnpm build
-pnpm dev:cli configure
-pnpm dev:cli summarize
+pnpm dev:cli                  # launches interactive TUI
 ```
 
 ## Features
 
+- **Interactive TUI** - Beautiful terminal interface with calendar picker, setup wizard, and real-time progress
 - **Activity Summarization** - Summarizes messages sent, @mentions received, thread participation, and reactions given
 - **Intelligent Segmentation** - Combines time-based and semantic analysis to group related messages into conversations
 - **Smart Consolidation** - Groups related conversations by shared references (GitHub issues, Jira tickets, error patterns) for coherent narrative summaries
@@ -40,7 +39,7 @@ pnpm dev:cli summarize
 - **Bot Message Merging** - GitHub and CircleCI bot messages are merged into adjacent human discussions
 - **Message Caching** - SQLite-based caching to minimize API calls on repeat queries
 - **Flexible Time Ranges** - Supports `today`, `yesterday`, `last-week`, or ISO date ranges (`YYYY-MM-DD..YYYY-MM-DD`)
-- **Dual Interface** - Use as a CLI tool or integrate with Claude via MCP server
+- **Dual Interface** - Use interactively via TUI, batch mode for scripting, or integrate with Claude via MCP server
 
 ## Requirements
 
@@ -209,7 +208,7 @@ The fastest way to get started on Apple Silicon Macs:
 ```bash
 brew tap hansef/tap
 brew install slack-summarizer
-slack-summarizer configure
+slack-summarizer    # TUI guides you through setup on first run
 ```
 
 ### Option 2: MCP Server (Docker)
@@ -229,20 +228,22 @@ git clone https://github.com/hansef/slack-summarizer.git
 cd slack-summarizer
 pnpm install
 pnpm build
-pnpm dev:cli configure
+pnpm dev:cli    # TUI guides you through setup on first run
 ```
 
 Requires Node.js >= 20.0.0 and pnpm 9.0.0.
 
 ## Configuration
 
-The easiest way to configure slack-summarizer is with the interactive wizard:
+The easiest way to configure slack-summarizer is to just run it - the TUI will guide you through setup on first run:
 
 ```bash
-slack-summarizer configure
+slack-summarizer
 ```
 
-This creates a config file at `~/.config/slack-summarizer/config.toml` with your API keys and settings.
+You can also run `slack-summarizer configure` for a terminal-based setup wizard.
+
+Configuration is saved to `~/.config/slack-summarizer/config.toml`.
 
 ### Environment Variables
 
