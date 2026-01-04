@@ -7,6 +7,7 @@ import { Box, Text, useInput } from 'ink';
 import { TextInput, PasswordInput, Select, ConfirmInput, Spinner, StatusMessage } from '@inkjs/ui';
 import { WebClient } from '@slack/web-api';
 import Anthropic from '@anthropic-ai/sdk';
+import { spawn, execSync } from 'child_process';
 import {
   writeConfigFile,
   createFullConfig,
@@ -23,8 +24,11 @@ type Step =
   | 'welcome'
   | 'slack-token'
   | 'slack-testing'
+  | 'auth-method'
   | 'anthropic-key'
   | 'anthropic-testing'
+  | 'oauth-token'
+  | 'oauth-testing'
   | 'openai-prompt'
   | 'openai-key'
   | 'openai-testing'
@@ -39,7 +43,9 @@ interface SetupState {
   slackToken: string;
   slackUserId?: string;
   slackUserName?: string;
-  anthropicKey: string;
+  authMethod?: 'api_key' | 'oauth';
+  anthropicKey?: string;
+  oauthToken?: string;
   openaiKey?: string;
   enableEmbeddings?: boolean;
   model?: string;
@@ -47,12 +53,69 @@ interface SetupState {
   error?: string;
 }
 
+/**
+ * Check if claude CLI is available in PATH.
+ */
+function isClaudeCliAvailable(): boolean {
+  try {
+    execSync('which claude', { encoding: 'utf-8', stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Test a Claude OAuth token by making a minimal CLI call.
+ */
+async function testOAuthToken(oauthToken: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('claude', ['-p', 'Say "ok"', '--output-format', 'json'], {
+      env: {
+        ...process.env,
+        CLAUDE_CODE_OAUTH_TOKEN: oauthToken,
+        ANTHROPIC_API_KEY: '',
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stderr = '';
+
+    // Close stdin immediately - claude CLI doesn't need input for -p flag
+    child.stdin.end();
+
+    // Set a timeout to avoid hanging forever
+    const timeout = setTimeout(() => {
+      child.kill();
+      reject(new Error('OAuth test timed out after 30 seconds'));
+    }, 30000);
+
+    child.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    child.on('close', (code) => {
+      clearTimeout(timeout);
+      if (code !== 0) {
+        reject(new Error(stderr || `CLI exited with code ${code}`));
+      } else {
+        resolve();
+      }
+    });
+
+    child.on('error', (err) => {
+      clearTimeout(timeout);
+      reject(new Error(`Failed to spawn claude CLI: ${err.message}`));
+    });
+  });
+}
+
 export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.ReactElement {
   const [step, setStep] = useState<Step>('welcome');
   const [state, setState] = useState<SetupState>({
     slackToken: '',
-    anthropicKey: '',
   });
+  const cliAvailable = isClaudeCliAvailable();
 
   useInput((_input, key) => {
     if (step === 'welcome' && key.return) {
@@ -89,13 +152,22 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
         slackUserId: auth.user_id,
         slackUserName: userName,
       }));
-      setStep('anthropic-key');
+      setStep('auth-method');
     } catch (err) {
       setState((s) => ({
         ...s,
         error: `Slack connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
       }));
       setStep('slack-token');
+    }
+  }, []);
+
+  const handleAuthMethodSelect = useCallback((method: string) => {
+    setState((s) => ({ ...s, authMethod: method as 'api_key' | 'oauth', error: undefined }));
+    if (method === 'api_key') {
+      setStep('anthropic-key');
+    } else {
+      setStep('oauth-token');
     }
   }, []);
 
@@ -123,6 +195,27 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
         error: `Anthropic connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
       }));
       setStep('anthropic-key');
+    }
+  }, []);
+
+  const handleOAuthTokenSubmit = useCallback(async (token: string) => {
+    if (!token.startsWith('sk-ant-oat')) {
+      setState((s) => ({ ...s, error: 'OAuth token must start with sk-ant-oat' }));
+      return;
+    }
+
+    setState((s) => ({ ...s, oauthToken: token, error: undefined }));
+    setStep('oauth-testing');
+
+    try {
+      await testOAuthToken(token);
+      setStep('openai-prompt');
+    } catch (err) {
+      setState((s) => ({
+        ...s,
+        error: `OAuth connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      }));
+      setStep('oauth-token');
     }
   }, []);
 
@@ -179,9 +272,9 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
       setStep('model-select');
     } else {
       // Skip optional settings, save with defaults
-      saveConfig(state.slackToken, state.anthropicKey, undefined, undefined, state.openaiKey, state.enableEmbeddings);
+      saveConfig(state.slackToken, state.anthropicKey, state.oauthToken, undefined, undefined, state.openaiKey, state.enableEmbeddings);
     }
-  }, [state.slackToken, state.anthropicKey, state.openaiKey, state.enableEmbeddings]);
+  }, [state.slackToken, state.anthropicKey, state.oauthToken, state.openaiKey, state.enableEmbeddings]);
 
   const handleModelSelect = useCallback((model: string) => {
     setState((s) => ({ ...s, model }));
@@ -191,19 +284,20 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
   const handleTimezoneSubmit = useCallback(
     (timezone: string) => {
       setState((s) => ({ ...s, timezone }));
-      saveConfig(state.slackToken, state.anthropicKey, state.model, timezone, state.openaiKey, state.enableEmbeddings);
+      saveConfig(state.slackToken, state.anthropicKey, state.oauthToken, state.model, timezone, state.openaiKey, state.enableEmbeddings);
     },
-    [state.slackToken, state.anthropicKey, state.model, state.openaiKey, state.enableEmbeddings]
+    [state.slackToken, state.anthropicKey, state.oauthToken, state.model, state.openaiKey, state.enableEmbeddings]
   );
 
   const saveConfig = useCallback(
-    async (slackToken: string, anthropicKey: string, model?: string, timezone?: string, openaiKey?: string, enableEmbeddings?: boolean) => {
+    async (slackToken: string, anthropicKey?: string, oauthToken?: string, model?: string, timezone?: string, openaiKey?: string, enableEmbeddings?: boolean) => {
       setStep('saving');
 
       try {
         const config = createFullConfig({
           slackToken,
           anthropicKey,
+          oauthToken,
           model,
           timezone,
           openaiKey,
@@ -280,7 +374,7 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
         </Box>
       );
 
-    case 'anthropic-key':
+    case 'auth-method':
       return (
         <Box flexDirection="column">
           {state.slackUserName && (
@@ -290,7 +384,34 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
               </StatusMessage>
             </Box>
           )}
-          <Text bold>Step 2: Anthropic API Key</Text>
+          <Text bold>Step 2: Claude Authentication</Text>
+          <Box marginTop={1}>
+            <Text>Choose how to authenticate with Claude:</Text>
+          </Box>
+          <Box marginTop={1}>
+            <Select
+              options={[
+                {
+                  label: 'Anthropic API Key (pay-per-use)',
+                  value: 'api_key',
+                },
+                {
+                  label: cliAvailable
+                    ? 'Claude OAuth Token (Pro/Max subscription)'
+                    : 'Claude OAuth Token (requires claude CLI)',
+                  value: 'oauth',
+                },
+              ]}
+              onChange={handleAuthMethodSelect}
+            />
+          </Box>
+        </Box>
+      );
+
+    case 'anthropic-key':
+      return (
+        <Box flexDirection="column">
+          <Text bold>Anthropic API Key</Text>
           <Box marginTop={1}>
             <Text dimColor>Get your key from: https://console.anthropic.com/</Text>
           </Box>
@@ -316,10 +437,48 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
         </Box>
       );
 
+    case 'oauth-token':
+      return (
+        <Box flexDirection="column">
+          {!cliAvailable && (
+            <Box marginBottom={1}>
+              <StatusMessage variant="warning">
+                Claude CLI not found. Install: npm i -g @anthropic-ai/claude-code
+              </StatusMessage>
+            </Box>
+          )}
+          <Text bold>Claude OAuth Token</Text>
+          <Box marginTop={1}>
+            <Text dimColor>Get your token by running: claude setup-token</Text>
+          </Box>
+          <Text dimColor>Must start with sk-ant-oat</Text>
+          {state.error && (
+            <Box marginTop={1}>
+              <StatusMessage variant="error">{state.error}</StatusMessage>
+            </Box>
+          )}
+          <Box marginTop={1}>
+            <PasswordInput
+              placeholder="sk-ant-oat01-..."
+              onSubmit={handleOAuthTokenSubmit}
+            />
+          </Box>
+        </Box>
+      );
+
+    case 'oauth-testing':
+      return (
+        <Box flexDirection="column">
+          <Spinner label="Testing Claude OAuth..." />
+        </Box>
+      );
+
     case 'openai-prompt':
       return (
         <Box flexDirection="column">
-          <StatusMessage variant="success">Anthropic API verified!</StatusMessage>
+          <StatusMessage variant="success">
+            {state.authMethod === 'oauth' ? 'Claude OAuth verified!' : 'Anthropic API verified!'}
+          </StatusMessage>
           <Box marginTop={1}>
             <Text bold>Step 3: OpenAI Embeddings (Recommended)</Text>
           </Box>

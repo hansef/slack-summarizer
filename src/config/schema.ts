@@ -27,6 +27,7 @@ export const ConfigFileSchema = z.object({
   anthropic: z
     .object({
       api_key: z.string().optional(),
+      oauth_token: z.string().optional(),
       model: ClaudeModelSchema.optional(),
       concurrency: z.coerce.number().positive().optional(),
     })
@@ -79,10 +80,22 @@ export const ConfigSchema = z.object({
     .string()
     .min(1, 'SLACK_USER_TOKEN is required')
     .startsWith('xoxp-', 'SLACK_USER_TOKEN must be a user token (starts with xoxp-)'),
+
+  // Claude authentication (at least one required - validated in provider.ts)
   ANTHROPIC_API_KEY: z
     .string()
-    .min(1, 'ANTHROPIC_API_KEY is required')
-    .startsWith('sk-ant-', 'ANTHROPIC_API_KEY must start with sk-ant-'),
+    .optional()
+    .refine(
+      (val) => !val || val.startsWith('sk-ant-'),
+      'ANTHROPIC_API_KEY must start with sk-ant-'
+    ),
+  CLAUDE_CODE_OAUTH_TOKEN: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || val.startsWith('sk-ant-oat'),
+      'CLAUDE_CODE_OAUTH_TOKEN must start with sk-ant-oat'
+    ),
 
   // Optional with defaults
   SLACK_SUMMARIZER_DB_PATH: z.string().default('./cache/slack.db'),
@@ -119,6 +132,7 @@ export function configFileToEnvObject(file: ConfigFile): Record<string, string |
 
   // Anthropic settings
   if (file.anthropic?.api_key) result.ANTHROPIC_API_KEY = file.anthropic.api_key;
+  if (file.anthropic?.oauth_token) result.CLAUDE_CODE_OAUTH_TOKEN = file.anthropic.oauth_token;
   if (file.anthropic?.model) result.SLACK_SUMMARIZER_CLAUDE_MODEL = file.anthropic.model;
   if (file.anthropic?.concurrency)
     result.SLACK_SUMMARIZER_CLAUDE_CONCURRENCY = file.anthropic.concurrency;

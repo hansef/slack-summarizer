@@ -1,13 +1,13 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { getEnv } from '../../utils/env.js';
 import { logger } from '../../utils/logger.js';
 import { SlackMessage } from '../models/slack.js';
 import { MessagePair } from '../models/conversation.js';
+import { getClaudeProvider, type ClaudeBackend } from '../llm/index.js';
 
 const BATCH_SIZE = 20; // Process 20 message pairs at once
 
 export interface SemanticAnalysisConfig {
   apiKey?: string;
+  oauthToken?: string;
   batchSize?: number;
 }
 
@@ -25,10 +25,14 @@ export async function analyzeConversationBoundaries(
     return [];
   }
 
-  const apiKey = config.apiKey ?? getEnv().ANTHROPIC_API_KEY;
   const batchSize = config.batchSize ?? BATCH_SIZE;
 
-  const client = new Anthropic({ apiKey });
+  // Get backend from provider
+  const provider = getClaudeProvider({
+    apiKey: config.apiKey,
+    oauthToken: config.oauthToken,
+  });
+  const backend = provider.getBackend();
 
   // Create message pairs for analysis
   const pairs: MessagePair[] = [];
@@ -55,7 +59,7 @@ export async function analyzeConversationBoundaries(
 
   for (let i = 0; i < pairs.length; i += batchSize) {
     const batch = pairs.slice(i, i + batchSize);
-    const decisions = await analyzeBatch(client, batch);
+    const decisions = await analyzeBatch(backend, batch);
     allDecisions.push(...decisions);
   }
 
@@ -63,7 +67,7 @@ export async function analyzeConversationBoundaries(
 }
 
 async function analyzeBatch(
-  client: Anthropic,
+  backend: ClaudeBackend,
   pairs: MessagePair[]
 ): Promise<BoundaryDecision[]> {
   const pairsText = pairs
@@ -88,14 +92,14 @@ Respond with ONLY a JSON array of objects, one per pair, with "index" (1-based p
 [{"index": 1, "boundary": false}, {"index": 2, "boundary": true}, ...]`;
 
   try {
-    const response = await client.messages.create({
+    const response = await backend.createMessage({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     });
 
     const content = response.content[0];
-    if (content.type !== 'text') {
+    if (!content || content.type !== 'text') {
       throw new Error('Unexpected response type');
     }
 

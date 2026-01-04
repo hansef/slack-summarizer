@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { getEnv, type ClaudeModel } from '../../utils/env.js';
 import { logger } from '../../utils/logger.js';
 import { ConversationGroup, getGroupSlackLinks } from '../consolidation/consolidator.js';
@@ -10,25 +9,37 @@ import {
   parseNarrativeSummaryResponse,
   parseNarrativeBatchResponse,
 } from './prompts.js';
+import { getClaudeProvider, type ClaudeBackend } from '../llm/index.js';
 
 export interface SummarizationClientConfig {
   apiKey?: string;
+  oauthToken?: string;
   model?: ClaudeModel;
   slackClient?: SlackClient;
 }
 
 export class SummarizationClient {
-  private client: Anthropic;
+  private backend: ClaudeBackend;
   private model: ClaudeModel;
   private slackClient: SlackClient;
   // Cache for in-flight user fetch promises to avoid duplicate API calls
   private userFetchPromises = new Map<string, Promise<string>>();
 
   constructor(config: SummarizationClientConfig = {}) {
-    const apiKey = config.apiKey ?? getEnv().ANTHROPIC_API_KEY;
     this.model = config.model ?? getEnv().SLACK_SUMMARIZER_CLAUDE_MODEL;
-    this.client = new Anthropic({ apiKey });
     this.slackClient = config.slackClient ?? getSlackClient();
+
+    // Use the provider to get the appropriate backend (SDK or CLI)
+    const provider = getClaudeProvider({
+      apiKey: config.apiKey,
+      oauthToken: config.oauthToken,
+    });
+    this.backend = provider.getBackend();
+
+    logger.debug('Initialized SummarizationClient', {
+      backendType: this.backend.backendType,
+      model: this.model,
+    });
   }
 
   /**
@@ -132,14 +143,14 @@ export class SummarizationClient {
     const { primary: primaryLink, all: allLinks } = getGroupSlackLinks(group, slackLinks);
 
     try {
-      const response = await this.client.messages.create({
+      const response = await this.backend.createMessage({
         model: this.model,
         max_tokens: 2048,
         messages: [{ role: 'user', content: prompt }],
       });
 
       const content = response.content[0];
-      if (content.type !== 'text') {
+      if (!content || content.type !== 'text') {
         throw new Error('Unexpected response type');
       }
 
@@ -206,14 +217,14 @@ export class SummarizationClient {
     const prompt = buildNarrativeBatchPrompt(groups, userDisplayName, userDisplayNames);
 
     try {
-      const response = await this.client.messages.create({
+      const response = await this.backend.createMessage({
         model: this.model,
         max_tokens: 4096,
         messages: [{ role: 'user', content: prompt }],
       });
 
       const content = response.content[0];
-      if (content.type !== 'text') {
+      if (!content || content.type !== 'text') {
         throw new Error('Unexpected response type');
       }
 

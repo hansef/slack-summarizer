@@ -100,13 +100,15 @@ export function getConfig(): Config {
     const errors = result.error.errors.map((e) => `  - ${e.path.join('.')}: ${e.message}`);
 
     // Provide helpful error message based on what's missing
-    const missingRequired = result.error.errors.filter(
-      (e) => e.path[0] === 'SLACK_USER_TOKEN' || e.path[0] === 'ANTHROPIC_API_KEY'
-    );
+    const missingRequired = result.error.errors.filter((e) => e.path[0] === 'SLACK_USER_TOKEN');
 
     let helpText = '';
     if (missingRequired.length > 0) {
-      helpText = `\n\nTo configure, run:\n  slack-summarizer configure\n\nOr set environment variables:\n  export SLACK_USER_TOKEN="xoxp-..."\n  export ANTHROPIC_API_KEY="sk-ant-..."`;
+      helpText =
+        '\n\nTo configure, run:\n  slack-summarizer configure\n\n' +
+        'Or set environment variables:\n' +
+        '  export SLACK_USER_TOKEN="xoxp-..."\n' +
+        '  export ANTHROPIC_API_KEY="sk-ant-..." (or CLAUDE_CODE_OAUTH_TOKEN)';
     }
 
     throw new Error(`Configuration validation failed:\n${errors.join('\n')}${helpText}`);

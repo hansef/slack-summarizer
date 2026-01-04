@@ -43,12 +43,22 @@ export function formatConfigToml(config: ConfigFile): string {
   // Anthropic section
   if (config.anthropic) {
     lines.push('[anthropic]');
-    lines.push('# Your Anthropic API key (must start with sk-ant-)');
+    lines.push('# Claude Authentication (choose ONE):');
+    lines.push('#');
+    lines.push('# Option 1: Anthropic API Key (pay-per-use)');
     lines.push('# Get this from: https://console.anthropic.com/settings/keys');
     if (config.anthropic.api_key) {
       lines.push(`api_key = "${config.anthropic.api_key}"`);
     } else {
       lines.push('# api_key = "sk-ant-..."');
+    }
+    lines.push('');
+    lines.push('# Option 2: Claude OAuth Token (uses your Pro/Max subscription)');
+    lines.push('# Get this by running: claude setup-token');
+    if (config.anthropic.oauth_token) {
+      lines.push(`oauth_token = "${config.anthropic.oauth_token}"`);
+    } else {
+      lines.push('# oauth_token = "sk-ant-oat01-..."');
     }
     lines.push('');
 
@@ -150,13 +160,17 @@ export function writeConfigFile(config: ConfigFile, path?: string): void {
 /**
  * Create a minimal config file with just the required settings.
  */
-export function createMinimalConfig(slackToken: string, anthropicKey: string): ConfigFile {
+export function createMinimalConfig(
+  slackToken: string,
+  auth: { apiKey: string } | { oauthToken: string }
+): ConfigFile {
   return {
     slack: {
       user_token: slackToken,
     },
     anthropic: {
-      api_key: anthropicKey,
+      api_key: 'apiKey' in auth ? auth.apiKey : undefined,
+      oauth_token: 'oauthToken' in auth ? auth.oauthToken : undefined,
     },
   };
 }
@@ -166,7 +180,8 @@ export function createMinimalConfig(slackToken: string, anthropicKey: string): C
  */
 export function createFullConfig(options: {
   slackToken: string;
-  anthropicKey: string;
+  anthropicKey?: string;
+  oauthToken?: string;
   model?: string;
   timezone?: string;
   dbPath?: string;
@@ -180,6 +195,7 @@ export function createFullConfig(options: {
     },
     anthropic: {
       api_key: options.anthropicKey,
+      oauth_token: options.oauthToken,
     },
   };
 

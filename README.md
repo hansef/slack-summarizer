@@ -45,22 +45,70 @@ pnpm dev:cli summarize
 ## Requirements
 
 - **Slack User Token** (`xoxp-...`) - see [Slack App Setup](#slack-app-setup)
-- **Anthropic API Key** - from [console.anthropic.com](https://console.anthropic.com)
+- **Claude Authentication** - choose ONE:
+  - **Anthropic API Key** (`sk-ant-...`) - pay-per-use from [console.anthropic.com](https://console.anthropic.com)
+  - **Claude OAuth Token** (`sk-ant-oat01-...`) - uses your Claude Pro/Max subscription (see [Claude OAuth Setup](#claude-oauth-setup))
 - **OpenAI API Key** (optional) - for semantic embeddings that improve conversation grouping
 
 ## Slack App Setup
 
 Each user needs to create their own Slack app to get a user token. This is required because the summarizer needs to access your personal Slack activity.
 
-### 1. Create a Slack App
+### Option A: Create from Manifest (Recommended)
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps)
+2. Click **Create New App** → **From an app manifest**
+3. Select your workspace
+4. Choose **JSON** format and paste this manifest:
+
+```json
+{
+  "display_information": {
+    "name": "Slack Summarizer",
+    "description": "Personal Slack activity summarizer using Claude AI",
+    "background_color": "#4A154B"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Slack Summarizer",
+      "always_online": false
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "user": [
+        "channels:history",
+        "channels:read",
+        "groups:history",
+        "groups:read",
+        "im:history",
+        "im:read",
+        "mpim:history",
+        "mpim:read",
+        "reactions:read",
+        "search:read",
+        "users:read"
+      ]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
+```
+
+5. Click **Create**
+6. Go to **OAuth & Permissions** → **Install to Workspace** and authorize
+7. Copy the **User OAuth Token** (starts with `xoxp-`)
+
+### Option B: Create Manually
 
 1. Go to [api.slack.com/apps](https://api.slack.com/apps)
 2. Click **Create New App** → **From scratch**
 3. Name it (e.g., "My Slack Summarizer") and select your workspace
-
-### 2. Configure OAuth Scopes
-
-Go to **OAuth & Permissions** in the sidebar, scroll to **User Token Scopes**, and add:
+4. Go to **OAuth & Permissions** in the sidebar, scroll to **User Token Scopes**, and add:
 
 | Scope | Purpose |
 |-------|---------|
@@ -74,17 +122,66 @@ Go to **OAuth & Permissions** in the sidebar, scroll to **User Token Scopes**, a
 | `mpim:read` | List group DM conversations |
 | `reactions:read` | See reactions you've given |
 | `search:read` | Search messages (used to find your activity) |
-| `team:read` | Get workspace info |
 | `users:read` | Get user display names |
 
-### 3. Install and Get Your Token
+5. Click **Install to Workspace** and authorize
+6. Copy the **User OAuth Token** (starts with `xoxp-`)
 
-1. Go to **OAuth & Permissions**
-2. Click **Install to Workspace** and authorize
-3. Copy the **User OAuth Token** (starts with `xoxp-`)
-4. Add it to your `.env` file as `SLACK_USER_TOKEN`
+### Configure Your Token
+
+Add the token to your environment:
+
+```bash
+export SLACK_USER_TOKEN="xoxp-your-token-here"
+```
+
+Or run `slack-summarizer configure` to save it to your config file.
 
 > **Note:** This is a *user* token, not a bot token. It accesses Slack as you, so it can only see channels and messages you have access to.
+
+## Claude OAuth Setup
+
+If you have a Claude Pro or Max subscription, you can use your subscription for API calls instead of paying separately for Anthropic API usage. This uses the Claude CLI to make API calls under your subscription.
+
+### Prerequisites
+
+Install the Claude CLI (if not already installed):
+
+```bash
+npm install -g @anthropic-ai/claude-code
+# or use the native installer from https://claude.ai/download
+```
+
+### Steps to Obtain Your OAuth Token
+
+1. Run the following command in your terminal:
+   ```bash
+   claude setup-token
+   ```
+
+2. Follow the browser prompts to log into your Claude account with your Pro/Max subscription credentials. The CLI will open a browser window to complete an OAuth 2.0 authorization flow.
+
+3. After successful authentication, the terminal will display your OAuth token (starts with `sk-ant-oat01-...`).
+
+4. Set the token in your environment:
+   ```bash
+   export CLAUDE_CODE_OAUTH_TOKEN="sk-ant-oat01-your-token-here"
+   ```
+
+   Or add it to your config file (`~/.config/slack-summarizer/config.toml`):
+   ```toml
+   [anthropic]
+   oauth_token = "sk-ant-oat01-your-token-here"
+   ```
+
+### How It Works
+
+When `CLAUDE_CODE_OAUTH_TOKEN` is set:
+- The summarizer uses the `claude` CLI for API calls instead of the Anthropic SDK
+- API calls are billed against your Pro/Max subscription, not per-token
+- The CLI runs in an isolated temp directory to avoid polluting your Claude Code sessions
+
+> **Note:** If both `ANTHROPIC_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN` are set, the OAuth token takes priority.
 
 ## Installation
 

@@ -1,5 +1,6 @@
 import prompts from 'prompts';
 import Anthropic from '@anthropic-ai/sdk';
+import { spawn, execSync } from 'child_process';
 import { WebClient } from '@slack/web-api';
 import { output } from '../output.js';
 import { logger } from '../../utils/logger.js';
@@ -52,6 +53,52 @@ async function testAnthropicKey(
     model,
     max_tokens: 10,
     messages: [{ role: 'user', content: 'Say "ok"' }],
+  });
+}
+
+/**
+ * Check if claude CLI is available in PATH.
+ */
+function isClaudeCliAvailable(): boolean {
+  try {
+    execSync('which claude', { encoding: 'utf-8', stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Test a Claude OAuth token by making a minimal CLI call.
+ */
+async function testOAuthToken(oauthToken: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('claude', ['-p', 'Say "ok"', '--output-format', 'json'], {
+      env: {
+        ...process.env,
+        CLAUDE_CODE_OAUTH_TOKEN: oauthToken,
+        ANTHROPIC_API_KEY: '', // Clear to ensure OAuth is used
+      },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stderr = '';
+
+    child.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr || `CLI exited with code ${code}`));
+      } else {
+        resolve();
+      }
+    });
+
+    child.on('error', (err) => {
+      reject(new Error(`Failed to spawn claude CLI: ${err.message}`));
+    });
   });
 }
 
@@ -184,53 +231,124 @@ export async function configureCommand(options: ConfigureOptions): Promise<void>
 
   output.raw('');
 
-  // Anthropic Key
-  const existingAnthropicKey = existingConfig?.anthropic?.api_key;
-  const anthropicKeyPrompt = existingAnthropicKey
-    ? `Anthropic API key [${maskSecret(existingAnthropicKey)}]`
-    : 'Anthropic API key (sk-ant-...)';
+  // Claude Authentication - choice between API key and OAuth token
+  output.header('Claude Authentication');
+  output.divider();
+  output.info('Choose how to authenticate with Claude:');
+  output.info('  • API Key: Pay-per-use pricing (get from console.anthropic.com)');
+  output.info('  • OAuth Token: Uses your Pro/Max subscription (run `claude setup-token`)');
+  output.raw('');
 
-  const anthropicKeyResult = await promptWithCancel<string>({
-    type: 'password',
-    name: 'anthropicKey',
-    message: anthropicKeyPrompt,
-    validate: (value: string) => {
-      // Allow empty to keep existing
-      if (!value && existingAnthropicKey) return true;
-      if (!value) return 'API key is required';
-      if (!value.startsWith('sk-ant-')) return 'API key must start with sk-ant-';
-      return true;
+  const existingAnthropicKey = existingConfig?.anthropic?.api_key;
+  const existingOAuthToken = existingConfig?.anthropic?.oauth_token;
+  const hasCliAvailable = isClaudeCliAvailable();
+
+  // Determine default auth method based on existing config
+  let defaultAuthMethod: number = 0; // API key by default
+  if (existingOAuthToken && !existingAnthropicKey) {
+    defaultAuthMethod = 1; // OAuth if that's what was configured
+  }
+
+  const authMethodChoices = [
+    {
+      title: 'Anthropic API Key (pay-per-use)',
+      value: 'api_key',
+      description: 'Standard API billing',
     },
+    {
+      title: hasCliAvailable
+        ? 'Claude OAuth Token (Pro/Max subscription)'
+        : 'Claude OAuth Token (requires claude CLI)',
+      value: 'oauth',
+      description: hasCliAvailable
+        ? 'Uses your subscription'
+        : 'Install: npm i -g @anthropic-ai/claude-code',
+    },
+  ];
+
+  const authMethodResult = await promptWithCancel<string>({
+    type: 'select',
+    name: 'authMethod',
+    message: 'Authentication method',
+    choices: authMethodChoices,
+    initial: defaultAuthMethod,
   });
 
-  if (anthropicKeyResult.cancelled) {
+  if (authMethodResult.cancelled) {
     output.raw('');
     output.info('Configuration cancelled');
     return;
   }
 
-  const finalAnthropicKey: string | undefined =
-    anthropicKeyResult.value || existingAnthropicKey || undefined;
+  let finalAnthropicKey: string | undefined;
+  let finalOAuthToken: string | undefined;
 
-  // Test Anthropic connection
-  if (finalAnthropicKey) {
-    output.progress('Testing Anthropic API connection...');
-    try {
-      await testAnthropicKey(finalAnthropicKey);
-      output.success('Anthropic API connection successful');
-    } catch (error) {
-      logger.error('Anthropic API connection test failed', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      output.error(
-        'Anthropic API connection failed',
-        error instanceof Error ? error.message : 'Unknown error'
-      );
+  if (authMethodResult.value === 'api_key') {
+    // Anthropic API Key flow
+    const anthropicKeyPrompt = existingAnthropicKey
+      ? `Anthropic API key [${maskSecret(existingAnthropicKey)}]`
+      : 'Anthropic API key (sk-ant-...)';
+
+    const anthropicKeyResult = await promptWithCancel<string>({
+      type: 'password',
+      name: 'anthropicKey',
+      message: anthropicKeyPrompt,
+      validate: (value: string) => {
+        if (!value && existingAnthropicKey) return true;
+        if (!value) return 'API key is required';
+        if (!value.startsWith('sk-ant-')) return 'API key must start with sk-ant-';
+        return true;
+      },
+    });
+
+    if (anthropicKeyResult.cancelled) {
+      output.raw('');
+      output.info('Configuration cancelled');
+      return;
+    }
+
+    finalAnthropicKey = anthropicKeyResult.value || existingAnthropicKey || undefined;
+
+    // Test Anthropic connection
+    if (finalAnthropicKey) {
+      output.progress('Testing Anthropic API connection...');
+      try {
+        await testAnthropicKey(finalAnthropicKey);
+        output.success('Anthropic API connection successful');
+      } catch (error) {
+        logger.error('Anthropic API connection test failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        output.error(
+          'Anthropic API connection failed',
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+
+        const proceedResult = await promptWithCancel<boolean>({
+          type: 'confirm',
+          name: 'proceed',
+          message: 'Continue with invalid API key?',
+          initial: false,
+        });
+
+        if (proceedResult.cancelled || !proceedResult.value) {
+          output.info('Configuration cancelled');
+          return;
+        }
+      }
+    }
+  } else {
+    // OAuth Token flow
+    if (!hasCliAvailable) {
+      output.warn('Claude CLI not found in PATH');
+      output.info('Install with: npm install -g @anthropic-ai/claude-code');
+      output.info('Then run: claude setup-token');
+      output.raw('');
 
       const proceedResult = await promptWithCancel<boolean>({
         type: 'confirm',
         name: 'proceed',
-        message: 'Continue with invalid API key?',
+        message: 'Continue anyway (CLI must be installed before use)?',
         initial: false,
       });
 
@@ -239,6 +357,112 @@ export async function configureCommand(options: ConfigureOptions): Promise<void>
         return;
       }
     }
+
+    const oauthTokenPrompt = existingOAuthToken
+      ? `OAuth token [${maskSecret(existingOAuthToken)}]`
+      : 'OAuth token (sk-ant-oat01-...)';
+
+    output.raw('');
+    output.info('Get your OAuth token by running: claude setup-token');
+    output.raw('');
+
+    const oauthTokenResult = await promptWithCancel<string>({
+      type: 'password',
+      name: 'oauthToken',
+      message: oauthTokenPrompt,
+      validate: (value: string) => {
+        if (!value && existingOAuthToken) return true;
+        if (!value) return 'OAuth token is required';
+        if (!value.startsWith('sk-ant-oat'))
+          return 'OAuth token must start with sk-ant-oat';
+        return true;
+      },
+    });
+
+    if (oauthTokenResult.cancelled) {
+      output.raw('');
+      output.info('Configuration cancelled');
+      return;
+    }
+
+    finalOAuthToken = oauthTokenResult.value || existingOAuthToken || undefined;
+
+    // Test OAuth connection (only if CLI is available)
+    if (finalOAuthToken && hasCliAvailable) {
+      output.progress('Testing Claude OAuth connection...');
+      try {
+        await testOAuthToken(finalOAuthToken);
+        output.success('Claude OAuth connection successful');
+      } catch (error) {
+        logger.error('Claude OAuth connection test failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        output.error(
+          'Claude OAuth connection failed',
+          error instanceof Error ? error.message : 'Unknown error'
+        );
+
+        const proceedResult = await promptWithCancel<boolean>({
+          type: 'confirm',
+          name: 'proceed',
+          message: 'Continue with invalid OAuth token?',
+          initial: false,
+        });
+
+        if (proceedResult.cancelled || !proceedResult.value) {
+          output.info('Configuration cancelled');
+          return;
+        }
+      }
+    }
+  }
+
+  // Embeddings (recommended)
+  output.raw('');
+  output.header('Semantic Similarity (Recommended)');
+  output.divider();
+  output.info('Embeddings improve conversation grouping by detecting related discussions.');
+  output.raw('');
+
+  const embeddingsResult = await promptWithCancel<boolean>({
+    type: 'confirm',
+    name: 'wantEmbeddings',
+    message: 'Enable semantic similarity? (recommended)',
+    initial: existingConfig?.embeddings?.enabled ?? true,
+  });
+
+  if (embeddingsResult.cancelled) {
+    output.raw('');
+    output.info('Configuration cancelled');
+    return;
+  }
+
+  const enableEmbeddings: boolean | undefined = embeddingsResult.value;
+  let openaiKey: string | undefined;
+
+  if (embeddingsResult.value) {
+    const existingOpenaiKey = existingConfig?.embeddings?.api_key;
+    const openaiKeyPrompt = existingOpenaiKey
+      ? `OpenAI API key [${maskSecret(existingOpenaiKey)}]`
+      : 'OpenAI API key (sk-...)';
+
+    const openaiKeyResult = await promptWithCancel<string>({
+      type: 'password',
+      name: 'selectedOpenaiKey',
+      message: openaiKeyPrompt,
+      validate: (value: string) => {
+        if (!value && existingOpenaiKey) return true;
+        if (!value) return 'OpenAI API key is required for embeddings';
+        return true;
+      },
+    });
+
+    if (openaiKeyResult.cancelled) {
+      output.raw('');
+      output.info('Configuration cancelled');
+      return;
+    }
+    openaiKey = openaiKeyResult.value || existingOpenaiKey;
   }
 
   output.raw('');
@@ -248,7 +472,7 @@ export async function configureCommand(options: ConfigureOptions): Promise<void>
   const optionalResult = await promptWithCancel<boolean>({
     type: 'confirm',
     name: 'configureOptional',
-    message: 'Configure optional settings?',
+    message: 'Configure optional settings (model, timezone, log level)?',
     initial: false,
   });
 
@@ -256,8 +480,6 @@ export async function configureCommand(options: ConfigureOptions): Promise<void>
   let timezone: string | undefined;
   let logLevel: string | undefined;
   let dbPath: string | undefined;
-  let enableEmbeddings: boolean | undefined;
-  let openaiKey: string | undefined;
 
   if (!optionalResult.cancelled && optionalResult.value) {
     output.raw('');
@@ -342,52 +564,18 @@ export async function configureCommand(options: ConfigureOptions): Promise<void>
       return;
     }
     dbPath = dbPathResult.value;
-
-    // Embeddings
-    const embeddingsResult = await promptWithCancel<boolean>({
-      type: 'confirm',
-      name: 'wantEmbeddings',
-      message: 'Enable semantic similarity (requires OpenAI API key)?',
-      initial: existingConfig?.embeddings?.enabled || false,
-    });
-
-    if (embeddingsResult.cancelled) {
-      output.raw('');
-      output.info('Configuration cancelled');
-      return;
-    }
-    enableEmbeddings = embeddingsResult.value;
-
-    if (embeddingsResult.value) {
-      const existingOpenaiKey = existingConfig?.embeddings?.api_key;
-      const openaiKeyPrompt = existingOpenaiKey
-        ? `OpenAI API key [${maskSecret(existingOpenaiKey)}]`
-        : 'OpenAI API key (sk-...)';
-
-      const openaiKeyResult = await promptWithCancel<string>({
-        type: 'password',
-        name: 'selectedOpenaiKey',
-        message: openaiKeyPrompt,
-        validate: (value: string) => {
-          if (!value && existingOpenaiKey) return true;
-          if (!value) return 'OpenAI API key is required for embeddings';
-          return true;
-        },
-      });
-
-      if (openaiKeyResult.cancelled) {
-        output.raw('');
-        output.info('Configuration cancelled');
-        return;
-      }
-      openaiKey = openaiKeyResult.value || existingOpenaiKey;
-    }
   }
 
   // Final validation
-  if (!finalSlackToken || !finalAnthropicKey) {
+  if (!finalSlackToken) {
     output.error('Missing required settings');
-    output.info('Both Slack token and Anthropic API key are required');
+    output.info('Slack token is required');
+    process.exit(1);
+  }
+
+  if (!finalAnthropicKey && !finalOAuthToken) {
+    output.error('Missing required settings');
+    output.info('Either Anthropic API key or OAuth token is required');
     process.exit(1);
   }
 
@@ -400,6 +588,7 @@ export async function configureCommand(options: ConfigureOptions): Promise<void>
     const config = createFullConfig({
       slackToken: finalSlackToken,
       anthropicKey: finalAnthropicKey,
+      oauthToken: finalOAuthToken,
       model,
       timezone,
       logLevel,
