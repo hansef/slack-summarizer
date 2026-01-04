@@ -51,8 +51,16 @@ const PRESET_OPTIONS: PresetOption[] = [
   { label: 'Calendar View...', value: 'calendar' },
 ];
 
+function getTimezone(): string {
+  try {
+    return getEnv().SLACK_SUMMARIZER_TIMEZONE;
+  } catch {
+    return 'America/Los_Angeles';
+  }
+}
+
 function getThisWeekRange(): DateRange {
-  const tz = getEnv().SLACK_SUMMARIZER_TIMEZONE;
+  const tz = getTimezone();
   const now = DateTime.now().setZone(tz);
   const monday = now.startOf('week');
   return {
@@ -62,7 +70,7 @@ function getThisWeekRange(): DateRange {
 }
 
 function getPreviousWeekRange(): DateRange {
-  const tz = getEnv().SLACK_SUMMARIZER_TIMEZONE;
+  const tz = getTimezone();
   const now = DateTime.now().setZone(tz);
   const lastMonday = now.startOf('week').minus({ weeks: 1 });
   const lastSunday = lastMonday.plus({ days: 6 });
@@ -76,7 +84,7 @@ function getPreviousWeekRange(): DateRange {
  * Initialize calendar state
  */
 function createInitialCalendarState(): CalendarState {
-  const tz = getEnv().SLACK_SUMMARIZER_TIMEZONE;
+  const tz = getTimezone();
   const now = DateTime.now().setZone(tz);
   return {
     mode: 'day',

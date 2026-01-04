@@ -142,7 +142,7 @@ export function App(): React.ReactElement {
         <SetupScreen onComplete={handleSetupComplete} onSkip={handleQuit} />
       )}
 
-      {state.screen === 'date-selection' && (
+      {state.screen === 'date-selection' && isConfigured && (
         <DateSelectionScreen
           onSelect={handleDateSelect}
           onSettings={handleSettings}
