@@ -159,6 +159,11 @@ Slack API → DataFetcher → Segmentation → Context Enrichment → Consolidat
 - `SLACK_SUMMARIZER_EMBEDDING_REF_WEIGHT` - Reference weight 0-1 (default: 0.6)
 - `SLACK_SUMMARIZER_EMBEDDING_EMB_WEIGHT` - Embedding weight 0-1 (default: 0.4)
 
+**Concurrency (tune for your API limits):**
+- `SLACK_SUMMARIZER_CHANNEL_CONCURRENCY` - Parallel channel processing (default: 10)
+- `SLACK_SUMMARIZER_CLAUDE_CONCURRENCY` - Parallel Claude API calls (default: 20)
+- `SLACK_SUMMARIZER_SLACK_CONCURRENCY` - Parallel Slack API calls (default: 10)
+
 **Other:**
 - `SLACK_SUMMARIZER_DB_PATH` - SQLite cache location (default: `./cache/slack.db`)
 - `SLACK_SUMMARIZER_LOG_LEVEL` - Log level (default: `info`)

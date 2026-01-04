@@ -91,6 +91,9 @@ Create a `.env` file with the following variables:
 | `SLACK_SUMMARIZER_ENABLE_EMBEDDINGS` | No | Enable semantic embeddings for consolidation | `false` |
 | `SLACK_SUMMARIZER_EMBEDDING_REF_WEIGHT` | No | Weight for reference similarity (0-1) | `0.6` |
 | `SLACK_SUMMARIZER_EMBEDDING_EMB_WEIGHT` | No | Weight for embedding similarity (0-1) | `0.4` |
+| `SLACK_SUMMARIZER_CHANNEL_CONCURRENCY` | No | Parallel channel processing limit | `10` |
+| `SLACK_SUMMARIZER_CLAUDE_CONCURRENCY` | No | Parallel Claude API calls limit | `20` |
+| `SLACK_SUMMARIZER_SLACK_CONCURRENCY` | No | Parallel Slack API calls limit | `10` |
 
 ## CLI Usage
 
