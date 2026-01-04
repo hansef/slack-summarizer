@@ -9,6 +9,7 @@
 
 import { execSync } from 'child_process';
 import { logger } from '../../utils/logger.js';
+import { getEnv } from '../../utils/env.js';
 import type { ClaudeBackend } from './types.js';
 import { AnthropicSdkBackend } from './backends/anthropic-sdk.js';
 import { ClaudeCliBackend } from './backends/claude-cli.js';
@@ -52,8 +53,10 @@ export class ClaudeProvider {
     }
 
     // Auto-detect based on credentials
-    const oauthToken = config.oauthToken ?? process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    const apiKey = config.apiKey ?? process.env.ANTHROPIC_API_KEY;
+    // Use getEnv() to read from config file (and env vars), not just process.env
+    const env = getEnv();
+    const oauthToken = config.oauthToken ?? env.CLAUDE_CODE_OAUTH_TOKEN;
+    const apiKey = config.apiKey ?? env.ANTHROPIC_API_KEY;
 
     // Prioritize OAuth if present (assume user wants CLI if they set OAuth token)
     if (oauthToken && oauthToken.startsWith('sk-ant-oat')) {
@@ -90,7 +93,7 @@ export class ClaudeProvider {
   }
 
   private createSdkBackend(config: ClaudeProviderConfig): ClaudeBackend {
-    const apiKey = config.apiKey ?? process.env.ANTHROPIC_API_KEY;
+    const apiKey = config.apiKey ?? getEnv().ANTHROPIC_API_KEY;
     if (!apiKey) {
       throw new Error('ANTHROPIC_API_KEY required for SDK backend');
     }
@@ -98,7 +101,7 @@ export class ClaudeProvider {
   }
 
   private createCliBackend(config: ClaudeProviderConfig): ClaudeBackend {
-    const oauthToken = config.oauthToken ?? process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    const oauthToken = config.oauthToken ?? getEnv().CLAUDE_CODE_OAUTH_TOKEN;
     if (!oauthToken) {
       throw new Error('CLAUDE_CODE_OAUTH_TOKEN required for CLI backend');
     }

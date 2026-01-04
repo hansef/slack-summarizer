@@ -26,7 +26,12 @@ pnpm format           # Prettier on src/
 
 ## Architecture Overview
 
-Slack activity summarization tool with CLI and MCP interfaces. Uses search-first fetching to minimize API calls.
+Slack activity summarization tool with three interfaces:
+- **TUI** (default) - Interactive terminal UI with setup wizard, calendar picker, and scrollable summary viewer
+- **CLI** (batch mode) - Non-interactive for scripting (`--batch` flag or `summarize` command)
+- **MCP Server** - Integration with Claude Code/Desktop
+
+Uses search-first fetching to minimize API calls. Supports two Claude backends: Anthropic SDK (API key) or Claude CLI (OAuth token).
 
 ### Pipeline Flow
 
@@ -40,7 +45,9 @@ Slack API → DataFetcher → Segmentation → Context Enrichment → Consolidat
 
 | Directory | Purpose | Key Files |
 |-----------|---------|-----------|
-| `src/config/` | Configuration loading from TOML files and env vars | `loader.ts` (merges sources), `schema.ts` (Zod), `writer.ts` (TOML output) |
+| `src/cli/tui/` | Interactive terminal UI (Ink/React) | `App.tsx` (router), `screens/` (Setup, DateSelection, Loading, Summary, Settings), `hooks/` (useConfig, useSummary) |
+| `src/config/` | Configuration loading from TOML files and env vars | `loader.ts` (merges sources), `schema.ts` (Zod), `writer.ts` (TOML output), `paths.ts` (XDG dirs) |
+| `src/core/llm/` | Claude backend abstraction (SDK vs CLI) | `provider.ts` (factory), `backends/anthropic-sdk.ts`, `backends/claude-cli.ts`, `types.ts` |
 | `src/core/slack/` | Slack API client, data fetching | `client.ts` (WebClient + rate limiting), `fetcher.ts` (orchestration) |
 | `src/core/segmentation/` | Message → Conversation grouping | `hybrid.ts` (entry), `time-based.ts`, `semantic.ts`, `context-enricher.ts` |
 | `src/core/consolidation/` | Group related conversations | `consolidator.ts` (Union-Find), `reference-extractor.ts` |
@@ -145,14 +152,19 @@ Slack API → DataFetcher → Segmentation → Context Enrichment → Consolidat
 | Function | Location | Purpose |
 |----------|----------|---------|
 | `getSlackClient()` | `src/core/slack/client.ts` | Slack WebClient with rate limiting |
-| `getSummarizationClient()` | `src/core/summarization/client.ts` | Anthropic client wrapper |
+| `getClaudeProvider()` | `src/core/llm/provider.ts` | Claude backend (SDK or CLI) |
+| `getSummarizationClient()` | `src/core/summarization/client.ts` | Summarization orchestrator |
 | `getDatabase()` | `src/core/cache/db.ts` | SQLite connection |
 | `getEmbeddingClient()` | `src/core/embeddings/client.ts` | OpenAI embeddings (optional) |
 | `getRateLimiter()` | `src/core/slack/rate-limiter.ts` | Queue-based rate limiter |
 
 ### Environment Variables
 
-**Required:** `SLACK_USER_TOKEN`, `ANTHROPIC_API_KEY`
+**Required:** `SLACK_USER_TOKEN`
+
+**Claude Authentication (one required):**
+- `ANTHROPIC_API_KEY` - Anthropic API key (`sk-ant-...`) for pay-per-use
+- `CLAUDE_CODE_OAUTH_TOKEN` - Claude OAuth token (`sk-ant-oat01-...`) for Pro/Max subscription
 
 **Embeddings (optional):**
 - `OPENAI_API_KEY` - Required if embeddings enabled
@@ -201,6 +213,49 @@ When `SLACK_SUMMARIZER_ENABLE_EMBEDDINGS=true` and `OPENAI_API_KEY` is set:
 4. `calculateHybridSimilarity()` combines reference and embedding similarity
 5. Negative cosine similarity normalized to 0 (only positive similarity counts)
 6. Falls back to reference-only if API fails or key missing
+
+### LLM Abstraction Layer
+
+The Claude API calls are abstracted behind a provider pattern that supports two backends:
+
+**Backend Selection** (`src/core/llm/provider.ts`):
+1. If `CLAUDE_CODE_OAUTH_TOKEN` is set and `claude` CLI is available → CLI backend
+2. If `ANTHROPIC_API_KEY` is set → SDK backend
+3. OAuth takes priority if both are configured
+
+**Backends:**
+- `AnthropicSdkBackend` (`src/core/llm/backends/anthropic-sdk.ts`) - Direct API calls via `@anthropic-ai/sdk`
+- `ClaudeCliBackend` (`src/core/llm/backends/claude-cli.ts`) - Spawns `claude` CLI with OAuth token
+
+**CLI Backend Details:**
+- Runs in isolated temp directory (`/tmp/slack-summarizer-claude`) to avoid polluting user sessions
+- Passes OAuth token via `CLAUDE_CODE_OAUTH_TOKEN` env var
+- Clears `ANTHROPIC_API_KEY` to ensure OAuth is used
+- Uses `--output-format json` for structured responses
+
+### TUI (Terminal User Interface)
+
+The TUI is an Ink-based React application that serves as the default entry point (`src/cli/tui/`).
+
+**Screen Flow:**
+1. **Setup Screen** - First-run wizard: Slack token → Auth method → API keys → Optional settings
+2. **Date Selection Screen** - Presets (today, yesterday, last week) or advanced calendar with week/month modes
+3. **Loading Screen** - Real-time progress: fetching → segmenting → consolidating → summarizing
+4. **Summary Screen** - Scrollable markdown viewer with vim-style navigation, save to file
+5. **Settings Screen** - Edit model, timezone, log level, embeddings
+6. **Error Screen** - Error display with retry option
+
+**Key Hooks:**
+- `useConfig()` - Loads and validates configuration, detects if setup is needed
+- `useSummary()` - Orchestrates summarization with progress callbacks
+
+**Calendar Navigation:**
+- Day mode: Arrow keys navigate, Enter selects range
+- Week mode (`w`): Select entire ISO weeks
+- Month mode (`m`): Select entire months
+- Two-month side-by-side view with week numbers
+
+**Entry Point:** When running `slack-summarizer` without arguments, TUI launches. Use `--batch` for non-interactive mode.
 
 ### MCP Server
 

@@ -192,11 +192,9 @@ export SLACK_SUMMARIZER_ENABLE_EMBEDDINGS=true
 Or add to your config file (`~/.config/slack-summarizer/config.toml`):
 
 ```toml
-[openai]
-api_key = "sk-your-key-here"
-
 [embeddings]
 enabled = true
+api_key = "sk-your-key-here"
 ```
 
 ## Installation
@@ -253,7 +251,8 @@ Create a `.env` file or set these in your shell:
 | Variable | Required | Description | Default |
 |----------|----------|-------------|---------|
 | `SLACK_USER_TOKEN` | Yes | Slack user token (xoxp-...) | - |
-| `ANTHROPIC_API_KEY` | Yes | Anthropic API key | - |
+| `ANTHROPIC_API_KEY` | One of these | Anthropic API key for pay-per-use | - |
+| `CLAUDE_CODE_OAUTH_TOKEN` | One of these | Claude OAuth token for Pro/Max subscription | - |
 | `OPENAI_API_KEY` | No | OpenAI API key (for embeddings) | - |
 | `SLACK_SUMMARIZER_DB_PATH` | No | SQLite cache location | `./cache/slack.db` |
 | `SLACK_SUMMARIZER_LOG_LEVEL` | No | Log level (debug, info, warn, error) | `info` |
@@ -325,7 +324,8 @@ slack-summarizer summarize -f markdown -o -
 |--------|-------------|---------|
 | `-d, --date <date>` | Target date (today, yesterday, YYYY-MM-DD) | `today` |
 | `-s, --span <span>` | Time span (day, week) | `day` |
-| `-o, --output <file>` | Output file path (use `-` for stdout) | `./slack-summary.json` |
+| `-f, --format <format>` | Output format (json, markdown) | `json` |
+| `-o, --output <file>` | Output file path (use `-` for stdout) | `./slack-summary.json` or `./slack-summary.md` |
 | `-m, --model <model>` | Claude model (haiku, sonnet) | `haiku` |
 | `-u, --user <userId>` | Slack user ID | Token owner |
 
@@ -450,12 +450,25 @@ pnpm format
 src/
 ├── cli/                     # Command-line interface
 │   ├── index.ts            # CLI entry point
-│   ├── commands/           # Command implementations
-│   └── output.ts           # Formatted console output
+│   ├── commands/           # Batch mode command implementations
+│   ├── output.ts           # Formatted console output
+│   └── tui/                # Interactive terminal UI (Ink/React)
+│       ├── App.tsx         # Main router and screen state
+│       ├── screens/        # Setup, DateSelection, Loading, Summary, Settings, Error
+│       ├── hooks/          # useConfig, useSummary
+│       └── utils/          # Calendar calculations, file save
+├── config/                  # Configuration loading
+│   ├── loader.ts           # Multi-source config merging (env + TOML)
+│   ├── schema.ts           # Zod schemas for validation
+│   ├── writer.ts           # TOML config file generation
+│   └── paths.ts            # XDG config directory handling
 ├── core/                    # Core business logic
 │   ├── cache/              # SQLite message caching
 │   ├── consolidation/      # Reference extraction and conversation grouping
 │   ├── embeddings/         # OpenAI embeddings for semantic similarity
+│   ├── llm/                # Claude backend abstraction
+│   │   ├── provider.ts     # Backend factory (auto-selects SDK or CLI)
+│   │   └── backends/       # Anthropic SDK and Claude CLI implementations
 │   ├── models/             # Data models and schemas
 │   ├── segmentation/       # Conversation segmentation (time + semantic)
 │   ├── slack/              # Slack API client and fetching

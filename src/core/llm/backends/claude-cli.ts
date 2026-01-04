@@ -65,6 +65,9 @@ export class ClaudeCliBackend implements ClaudeBackend {
     model: string;
     maxTokens: number;
   }): Promise<string> {
+    // Timeout after 5 minutes
+    const TIMEOUT_MS = 5 * 60 * 1000;
+
     return new Promise((resolve, reject) => {
       // Build args for claude -p
       // Note: --tools "" disables all tools for pure text completion
@@ -94,6 +97,19 @@ export class ClaudeCliBackend implements ClaudeBackend {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
+      // Close stdin immediately - we're passing prompt via args, not stdin
+      child.stdin.end();
+
+      // Set up timeout to kill hung processes
+      const timeout = setTimeout(() => {
+        logger.error('Claude CLI timeout', {
+          model: opts.model,
+          promptLength: opts.prompt.length,
+        });
+        child.kill('SIGTERM');
+        reject(new Error(`Claude CLI timed out after ${TIMEOUT_MS / 1000}s`));
+      }, TIMEOUT_MS);
+
       let stdout = '';
       let stderr = '';
 
@@ -103,9 +119,12 @@ export class ClaudeCliBackend implements ClaudeBackend {
 
       child.stderr.on('data', (data: Buffer) => {
         stderr += data.toString();
+        // Log stderr in real-time for debugging
+        logger.debug('Claude CLI stderr', { chunk: data.toString().substring(0, 200) });
       });
 
       child.on('close', (code) => {
+        clearTimeout(timeout);
         if (code !== 0) {
           logger.error('Claude CLI failed', {
             code,
@@ -113,11 +132,13 @@ export class ClaudeCliBackend implements ClaudeBackend {
           });
           reject(new Error(`Claude CLI exited with code ${code}: ${stderr}`));
         } else {
+          logger.debug('Claude CLI completed', { stdoutLength: stdout.length });
           resolve(stdout);
         }
       });
 
       child.on('error', (err) => {
+        clearTimeout(timeout);
         logger.error('Failed to spawn claude CLI', { error: err.message });
         reject(new Error(`Failed to spawn claude CLI: ${err.message}`));
       });

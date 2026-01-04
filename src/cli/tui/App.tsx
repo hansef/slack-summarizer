@@ -109,12 +109,14 @@ export function App(): React.ReactElement {
   }, []);
 
   const handleSettingsBack = useCallback(() => {
+    // Reload config in case credentials changed
+    reloadConfig();
     // Go back to previous screen (summary if we have one, otherwise date selection)
     setState((s) => ({
       ...s,
       screen: s.summary ? 'summary' : 'date-selection',
     }));
-  }, []);
+  }, [reloadConfig]);
 
   const handleQuit = useCallback(() => {
     exit();

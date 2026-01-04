@@ -5,15 +5,19 @@
 import React, { useState, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { TextInput, PasswordInput, Select, ConfirmInput, Spinner, StatusMessage } from '@inkjs/ui';
-import { WebClient } from '@slack/web-api';
-import Anthropic from '@anthropic-ai/sdk';
-import { spawn, execSync } from 'child_process';
 import {
   writeConfigFile,
   createFullConfig,
   getConfigFilePath,
   getDisplayPath,
 } from '../../../config/index.js';
+import {
+  isClaudeCliAvailable,
+  validateSlackToken,
+  validateAnthropicApiKey,
+  validateClaudeOAuthToken,
+  validateOpenAIKey,
+} from '../utils/validators.js';
 
 interface SetupScreenProps {
   onComplete: () => void;
@@ -53,63 +57,6 @@ interface SetupState {
   error?: string;
 }
 
-/**
- * Check if claude CLI is available in PATH.
- */
-function isClaudeCliAvailable(): boolean {
-  try {
-    execSync('which claude', { encoding: 'utf-8', stdio: 'pipe' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Test a Claude OAuth token by making a minimal CLI call.
- */
-async function testOAuthToken(oauthToken: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn('claude', ['-p', 'Say "ok"', '--output-format', 'json'], {
-      env: {
-        ...process.env,
-        CLAUDE_CODE_OAUTH_TOKEN: oauthToken,
-        ANTHROPIC_API_KEY: '',
-      },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    let stderr = '';
-
-    // Close stdin immediately - claude CLI doesn't need input for -p flag
-    child.stdin.end();
-
-    // Set a timeout to avoid hanging forever
-    const timeout = setTimeout(() => {
-      child.kill();
-      reject(new Error('OAuth test timed out after 30 seconds'));
-    }, 30000);
-
-    child.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString();
-    });
-
-    child.on('close', (code) => {
-      clearTimeout(timeout);
-      if (code !== 0) {
-        reject(new Error(stderr || `CLI exited with code ${code}`));
-      } else {
-        resolve();
-      }
-    });
-
-    child.on('error', (err) => {
-      clearTimeout(timeout);
-      reject(new Error(`Failed to spawn claude CLI: ${err.message}`));
-    });
-  });
-}
-
 export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.ReactElement {
   const [step, setStep] = useState<Step>('welcome');
   const [state, setState] = useState<SetupState>({
@@ -124,40 +71,19 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
   });
 
   const handleSlackTokenSubmit = useCallback(async (token: string) => {
-    if (!token.startsWith('xoxp-')) {
-      setState((s) => ({ ...s, error: 'Token must start with xoxp-' }));
-      return;
-    }
-
     setState((s) => ({ ...s, slackToken: token, error: undefined }));
     setStep('slack-testing');
 
-    try {
-      const client = new WebClient(token);
-      const auth = await client.auth.test();
-
-      if (!auth.ok || !auth.user_id) {
-        throw new Error('Authentication failed');
-      }
-
-      const userInfo = await client.users.info({ user: auth.user_id });
-      const userName =
-        userInfo.user?.profile?.display_name ||
-        userInfo.user?.profile?.real_name ||
-        userInfo.user?.name ||
-        'Unknown';
-
+    const result = await validateSlackToken(token);
+    if (result.success) {
       setState((s) => ({
         ...s,
-        slackUserId: auth.user_id,
-        slackUserName: userName,
+        slackUserId: result.metadata?.userId,
+        slackUserName: result.metadata?.userName,
       }));
       setStep('auth-method');
-    } catch (err) {
-      setState((s) => ({
-        ...s,
-        error: `Slack connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-      }));
+    } else {
+      setState((s) => ({ ...s, error: result.error }));
       setStep('slack-token');
     }
   }, []);
@@ -172,49 +98,27 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
   }, []);
 
   const handleAnthropicKeySubmit = useCallback(async (key: string) => {
-    if (!key.startsWith('sk-ant-')) {
-      setState((s) => ({ ...s, error: 'API key must start with sk-ant-' }));
-      return;
-    }
-
     setState((s) => ({ ...s, anthropicKey: key, error: undefined }));
     setStep('anthropic-testing');
 
-    try {
-      const anthropic = new Anthropic({ apiKey: key });
-      await anthropic.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 10,
-        messages: [{ role: 'user', content: 'Say "ok"' }],
-      });
-
+    const result = await validateAnthropicApiKey(key);
+    if (result.success) {
       setStep('openai-prompt');
-    } catch (err) {
-      setState((s) => ({
-        ...s,
-        error: `Anthropic connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-      }));
+    } else {
+      setState((s) => ({ ...s, error: result.error }));
       setStep('anthropic-key');
     }
   }, []);
 
   const handleOAuthTokenSubmit = useCallback(async (token: string) => {
-    if (!token.startsWith('sk-ant-oat')) {
-      setState((s) => ({ ...s, error: 'OAuth token must start with sk-ant-oat' }));
-      return;
-    }
-
     setState((s) => ({ ...s, oauthToken: token, error: undefined }));
     setStep('oauth-testing');
 
-    try {
-      await testOAuthToken(token);
+    const result = await validateClaudeOAuthToken(token);
+    if (result.success) {
       setStep('openai-prompt');
-    } catch (err) {
-      setState((s) => ({
-        ...s,
-        error: `OAuth connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-      }));
+    } else {
+      setState((s) => ({ ...s, error: result.error }));
       setStep('oauth-token');
     }
   }, []);
@@ -229,40 +133,15 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
   }, []);
 
   const handleOpenAIKeySubmit = useCallback(async (key: string) => {
-    if (!key.startsWith('sk-')) {
-      setState((s) => ({ ...s, error: 'API key must start with sk-' }));
-      return;
-    }
-
     setState((s) => ({ ...s, openaiKey: key, error: undefined }));
     setStep('openai-testing');
 
-    try {
-      // Test OpenAI connection with a simple embeddings request
-      const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${key}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'text-embedding-3-small',
-          input: 'test',
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json() as { error?: { message?: string } };
-        throw new Error(errorData.error?.message || 'API request failed');
-      }
-
+    const result = await validateOpenAIKey(key);
+    if (result.success) {
       setState((s) => ({ ...s, enableEmbeddings: true }));
       setStep('optional-prompt');
-    } catch (err) {
-      setState((s) => ({
-        ...s,
-        error: `OpenAI connection failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-      }));
+    } else {
+      setState((s) => ({ ...s, error: result.error }));
       setStep('openai-key');
     }
   }, []);
@@ -272,7 +151,7 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
       setStep('model-select');
     } else {
       // Skip optional settings, save with defaults
-      saveConfig(state.slackToken, state.anthropicKey, state.oauthToken, undefined, undefined, state.openaiKey, state.enableEmbeddings);
+      void saveConfig(state.slackToken, state.anthropicKey, state.oauthToken, undefined, undefined, state.openaiKey, state.enableEmbeddings);
     }
   }, [state.slackToken, state.anthropicKey, state.oauthToken, state.openaiKey, state.enableEmbeddings]);
 
@@ -284,7 +163,7 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
   const handleTimezoneSubmit = useCallback(
     (timezone: string) => {
       setState((s) => ({ ...s, timezone }));
-      saveConfig(state.slackToken, state.anthropicKey, state.oauthToken, state.model, timezone, state.openaiKey, state.enableEmbeddings);
+      void saveConfig(state.slackToken, state.anthropicKey, state.oauthToken, state.model, timezone, state.openaiKey, state.enableEmbeddings);
     },
     [state.slackToken, state.anthropicKey, state.oauthToken, state.model, state.openaiKey, state.enableEmbeddings]
   );
@@ -361,7 +240,7 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
           <Box marginTop={1}>
             <PasswordInput
               placeholder="xoxp-..."
-              onSubmit={handleSlackTokenSubmit}
+              onSubmit={(token) => void handleSlackTokenSubmit(token)}
             />
           </Box>
         </Box>
@@ -424,7 +303,7 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
           <Box marginTop={1}>
             <PasswordInput
               placeholder="sk-ant-..."
-              onSubmit={handleAnthropicKeySubmit}
+              onSubmit={(key) => void handleAnthropicKeySubmit(key)}
             />
           </Box>
         </Box>
@@ -460,7 +339,7 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
           <Box marginTop={1}>
             <PasswordInput
               placeholder="sk-ant-oat01-..."
-              onSubmit={handleOAuthTokenSubmit}
+              onSubmit={(token) => void handleOAuthTokenSubmit(token)}
             />
           </Box>
         </Box>
@@ -520,7 +399,7 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
           <Box marginTop={1}>
             <PasswordInput
               placeholder="sk-..."
-              onSubmit={handleOpenAIKeySubmit}
+              onSubmit={(key) => void handleOpenAIKeySubmit(key)}
             />
           </Box>
         </Box>
