@@ -1,6 +1,34 @@
 # Slack Summarizer
 
-A comprehensive Slack activity summarization tool with both CLI and MCP (Model Context Protocol) server interfaces. Fetches your Slack activity over a specified time period, intelligently segments conversations, and uses Claude AI to generate coherent summaries.
+A comprehensive Slack activity summarization tool that fetches your Slack activity over a specified time period, intelligently segments conversations, and uses Claude AI to generate coherent summaries.
+
+## Three Ways to Use
+
+| Method | Best For | Install |
+|--------|----------|---------|
+| **Homebrew CLI** | Daily use on macOS | `brew install hansef/tap/slack-summarizer` |
+| **MCP Server** | Integration with Claude Code/Desktop | Docker image via `claude mcp add` |
+| **From Source** | Development and customization | `git clone` + `pnpm install` |
+
+### Quick Start
+
+```bash
+# Option 1: Homebrew (macOS ARM64)
+brew tap hansef/tap
+brew install slack-summarizer
+slack-summarizer configure
+slack-summarizer summarize
+
+# Option 2: MCP Server (any platform with Docker)
+docker pull ghcr.io/hansef/slack-summarizer:latest
+claude mcp add slack-summarizer  # then configure (see MCP section below)
+
+# Option 3: From Source
+git clone https://github.com/hansef/slack-summarizer.git
+cd slack-summarizer && pnpm install && pnpm build
+pnpm dev:cli configure
+pnpm dev:cli summarize
+```
 
 ## Features
 
@@ -16,10 +44,9 @@ A comprehensive Slack activity summarization tool with both CLI and MCP (Model C
 
 ## Requirements
 
-- Node.js >= 20.0.0
-- pnpm 9.0.0
-- Slack User Token (`xoxp-...`) - see [Slack App Setup](#slack-app-setup)
-- Anthropic API Key
+- **Slack User Token** (`xoxp-...`) - see [Slack App Setup](#slack-app-setup)
+- **Anthropic API Key** - from [console.anthropic.com](https://console.anthropic.com)
+- **OpenAI API Key** (optional) - for semantic embeddings that improve conversation grouping
 
 ## Slack App Setup
 
@@ -61,39 +88,37 @@ Go to **OAuth & Permissions** in the sidebar, scroll to **User Token Scopes**, a
 
 ## Installation
 
-### Homebrew (macOS) - Recommended
+### Option 1: Homebrew (macOS ARM64)
+
+The fastest way to get started on Apple Silicon Macs:
 
 ```bash
-# Add the tap
 brew tap hansef/tap
-
-# Install slack-summarizer
 brew install slack-summarizer
-
-# Run the interactive configuration wizard
 slack-summarizer configure
 ```
 
-### From Source
+### Option 2: MCP Server (Docker)
+
+For integration with Claude Code or Claude Desktop. See [MCP Server](#mcp-server) section for full setup.
 
 ```bash
-# Clone the repository
+docker pull ghcr.io/hansef/slack-summarizer:latest
+```
+
+### Option 3: From Source
+
+For development or running on other platforms:
+
+```bash
 git clone https://github.com/hansef/slack-summarizer.git
 cd slack-summarizer
-
-# Install dependencies
 pnpm install
-
-# Build
 pnpm build
-
-# Run the configuration wizard
 pnpm dev:cli configure
-
-# Or set up environment variables manually
-cp .env.example .env
-# Edit .env with your tokens
 ```
+
+Requires Node.js >= 20.0.0 and pnpm 9.0.0.
 
 ## Configuration
 
@@ -131,42 +156,53 @@ An OpenAI API key and turning on `SLACK_SUMMARIZER_ENABLE_EMBEDDINGS` is optiona
 
 ## CLI Usage
 
+Commands work the same whether installed via Homebrew or running from source:
+
+```bash
+# If installed via Homebrew:
+slack-summarizer <command>
+
+# If running from source:
+pnpm dev:cli <command>
+```
+
 ### Generate Summary
 
 ```bash
 # Summarize today's activity
-pnpm dev:cli summarize
+slack-summarizer summarize
 
 # Summarize yesterday
-pnpm dev:cli summarize --date yesterday
+slack-summarizer summarize --date yesterday
 
 # Summarize a specific date
-pnpm dev:cli summarize --date 2024-01-15
+slack-summarizer summarize --date 2024-01-15
 
 # Summarize a week
-pnpm dev:cli summarize --date 2024-01-15 --span week
+slack-summarizer summarize --date 2024-01-15 --span week
 
-# Use a different model
-pnpm dev:cli summarize --model sonnet
+# Use a different model (haiku is default, sonnet for higher quality)
+slack-summarizer summarize --model sonnet
 
 # Output to a specific file
-pnpm dev:cli summarize --output ./my-summary.json
+slack-summarizer summarize --output ./my-summary.json
 
 # Output to stdout (for piping)
-pnpm dev:cli summarize -o - | jq '.summary'
+slack-summarizer summarize -o - | jq '.summary'
 
 # Output markdown to stdout
-pnpm dev:cli summarize -f markdown -o -
+slack-summarizer summarize -f markdown -o -
 ```
 
 ### CLI Commands
 
 | Command | Description |
 |---------|-------------|
+| `configure` | Interactive setup wizard for API keys and settings |
 | `summarize` | Generate activity summary |
+| `test-connection` | Verify Slack and Claude API connections |
 | `cache --stats` | Show cache statistics |
 | `cache --clear` | Clear cached data |
-| `test-connection` | Verify Slack and Claude API connections |
 
 ### Summarize Options
 
@@ -180,17 +216,11 @@ pnpm dev:cli summarize -f markdown -o -
 
 ## MCP Server
 
-The MCP server exposes Slack functionality to Claude and other MCP clients.
+The MCP server exposes Slack functionality to Claude Code, Claude Desktop, and other MCP clients.
 
-### Running the Server
+### Docker (Recommended)
 
-```bash
-pnpm dev:mcp
-```
-
-### Claude Code Integration
-
-To use as an MCP server in [Claude Code](https://claude.ai/code):
+The easiest way to run the MCP server:
 
 ```bash
 # Pull the image
@@ -213,13 +243,28 @@ claude mcp add-json slack-summarizer '{
 
 Then restart Claude Code to load the MCP server.
 
-**Optional:** Add more `-e` flags for additional settings:
+**Optional environment variables:**
 
 | Flag | Description |
 |------|-------------|
 | `-e OPENAI_API_KEY=...` | Enable semantic embeddings for better conversation grouping |
 | `-e SLACK_SUMMARIZER_ENABLE_EMBEDDINGS=true` | Required with OpenAI key to enable embeddings |
 | `-e SLACK_SUMMARIZER_CLAUDE_MODEL=claude-sonnet-4-5-20250929` | Use Sonnet instead of Haiku (default) |
+
+### From Source
+
+For development or if you prefer not to use Docker:
+
+```bash
+# Run in development mode
+pnpm dev:mcp
+
+# Or build and run
+pnpm build
+node dist/mcp/server.js
+```
+
+Then add to Claude Code pointing to the local server.
 
 ### Available Tools
 
