@@ -22,7 +22,13 @@ let lastProgressMessage = '';
 let silentMode = false;
 
 function shouldLog(level: LogLevel): boolean {
-  const configuredLevel = getEnv().SLACK_SUMMARIZER_LOG_LEVEL;
+  let configuredLevel: LogLevel = 'info'; // default
+  try {
+    configuredLevel = getEnv().SLACK_SUMMARIZER_LOG_LEVEL;
+  } catch {
+    // Config not available yet (e.g., during configure command)
+    // Fall back to default log level
+  }
   return LOG_LEVELS[level] >= LOG_LEVELS[configuredLevel];
 }
 

@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name('slack-summarizer')
   .description('Summarize Slack activity over time')
-  .version('1.0.0');
+  .version('1.1.1');
 
 interface DefaultOptions {
   batch?: boolean;
