@@ -174,8 +174,9 @@ export class SlackClient {
     // Add time range to query if provided
     let fullQuery = query;
     if (timeRange) {
-      const startDate = timeRange.start.toFormat('yyyy-MM-dd');
-      // Slack's before: is exclusive, so add 1 day to include messages on the end date
+      // Slack's after: and before: are both exclusive, so adjust boundaries
+      // after:2025-12-07 before:2025-12-09 captures messages on Dec 8
+      const startDate = timeRange.start.minus({ days: 1 }).toFormat('yyyy-MM-dd');
       const endDate = timeRange.end.plus({ days: 1 }).toFormat('yyyy-MM-dd');
       fullQuery += ` after:${startDate} before:${endDate}`;
     }
