@@ -360,6 +360,9 @@ Rules:
 - The outcome should capture any resolution, decision, or current status
 - Focus on actionable information and decisions ${userDisplayName} was involved in
 - nextActions: Extract action items where ${userDisplayName} needs to do something in the future
+  - CRITICAL: Each action MUST be self-contained and understandable in isolation (e.g., "Improve README documentation for slack-summarizer MCP server" NOT just "Improve README documentation")
+  - Include project name, feature name, or other identifying context so the action makes sense as a standalone todo item
+  - If no clear project/feature context exists, include the channel name (e.g., "Follow up on deployment discussion in #infrastructure")
   - Include explicit commitments ("I'll...", "I will...", "will send...")
   - Include joint commitments involving ${userDisplayName} ("we need to...", "we should...", "we can investigate...")
   - Include items explicitly flagged for future action ("dropping this here so we can...", "need to look into this", "flagging for later")
@@ -438,7 +441,7 @@ Rules:
 - IMPORTANT: When bot messages or attachments mention PRs, issues, features, or implementations, extract WHAT specifically was implemented/merged/fixed (e.g., "Reviewed Cody's PR adding OAuth2 support" not just "Reviewed Cody's implementation")
 - Key events should have enough context to understand them
 - Use @mentions ONLY in the participants array
-- nextActions: Extract future action items - explicit commitments, joint commitments ("we need to..."), items flagged for later (empty array if none)
+- nextActions: Extract future action items - each MUST be self-contained with project/feature context (e.g., "Improve README for slack-summarizer" not just "Improve README"); fall back to channel name if no project context; include explicit commitments, joint commitments ("we need to..."), items flagged for later (empty array if none)
 - timesheetEntry: Concise timesheet entry (10-15 words max) - past-tense action verb, concrete work accomplished, no emotions, include technical context (e.g., "Debugged OAuth token refresh issue in production API")
 - Return valid JSON array with one object per topic`;
 }

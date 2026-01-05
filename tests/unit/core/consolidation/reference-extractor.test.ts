@@ -117,13 +117,13 @@ describe('Reference Extractor', () => {
       });
     });
 
-    describe('Jira tickets', () => {
-      it('should extract JIRA-123 style tickets', () => {
+    describe('tickets (Jira, Linear, etc.)', () => {
+      it('should extract PREFIX-123 style tickets', () => {
         const msg = createMessage('Working on AUTH-456');
         const refs = extractReferencesFromMessage(msg);
 
         expect(refs).toContainEqual({
-          type: 'jira_ticket',
+          type: 'ticket',
           value: 'AUTH-456',
           raw: 'AUTH-456',
           messageTs: '1234.5678',
@@ -155,7 +155,7 @@ describe('Reference Extractor', () => {
         expect(refs.filter((r) => r.type === 'user_mention')).toHaveLength(1);
         expect(refs.filter((r) => r.type === 'github_issue')).toHaveLength(1);
         expect(refs.filter((r) => r.type === 'error_pattern')).toHaveLength(1);
-        expect(refs.filter((r) => r.type === 'jira_ticket')).toHaveLength(1);
+        expect(refs.filter((r) => r.type === 'ticket')).toHaveLength(1);
       });
     });
   });
@@ -245,7 +245,7 @@ describe('Reference Extractor', () => {
         conversationId: '2',
         references: [
           { type: 'github_issue' as const, value: '#111', raw: '#111', messageTs: '2' },
-          { type: 'jira_ticket' as const, value: 'AUTH-123', raw: 'AUTH-123', messageTs: '2' },
+          { type: 'ticket' as const, value: 'AUTH-123', raw: 'AUTH-123', messageTs: '2' },
         ],
         uniqueRefs: new Set(['#111', 'AUTH-123']),
       };
@@ -318,7 +318,7 @@ describe('Reference Extractor', () => {
         references: [
           { type: 'user_mention' as const, value: 'U123', raw: '<@U123>', messageTs: '1' },
           { type: 'github_issue' as const, value: '#456', raw: '#456', messageTs: '1' },
-          { type: 'jira_ticket' as const, value: 'AUTH-789', raw: 'AUTH-789', messageTs: '1' },
+          { type: 'ticket' as const, value: 'AUTH-789', raw: 'AUTH-789', messageTs: '1' },
         ],
         uniqueRefs: new Set(['U123', '#456', 'AUTH-789']),
       };
@@ -329,6 +329,272 @@ describe('Reference Extractor', () => {
       expect(filtered.has('#456')).toBe(true);
       expect(filtered.has('AUTH-789')).toBe(true);
       expect(filtered.size).toBe(2);
+    });
+  });
+
+  describe('SaaS platform references', () => {
+    describe('Figma', () => {
+      it('should extract Figma file URLs', () => {
+        const msg = createMessage('Check the design: https://www.figma.com/file/ABC123xyz/My-Design');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'figma',
+          value: 'figma:ABC123xyz',
+          raw: 'figma.com/file/ABC123xyz',
+          messageTs: '1234.5678',
+        });
+      });
+
+      it('should extract Figma design URLs', () => {
+        const msg = createMessage('https://figma.com/design/XYZ789abc/Homepage');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'figma',
+          value: 'figma:XYZ789abc',
+          raw: 'figma.com/design/XYZ789abc',
+          messageTs: '1234.5678',
+        });
+      });
+
+      it('should extract Figma board (FigJam) URLs', () => {
+        const msg = createMessage('FigJam here: https://figma.com/board/DEF456/Brainstorm');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'figma',
+          value: 'figma:DEF456',
+          raw: 'figma.com/board/DEF456',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('Notion', () => {
+      it('should extract Notion page URLs with 32-char hex ID', () => {
+        const msg = createMessage('See docs: https://notion.so/workspace/abc123def456789012345678901234ab');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'notion',
+          value: 'notion:abc123def456789012345678901234ab',
+          raw: 'notion.so/workspace/abc123def456789012345678901234ab',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('Confluence', () => {
+      it('should extract Confluence page URLs', () => {
+        const msg = createMessage('Wiki: https://company.atlassian.net/wiki/spaces/ENG/pages/123456789/Page-Title');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'confluence',
+          value: 'confluence:123456789',
+          raw: 'atlassian.net/wiki/spaces/ENG/pages/123456789',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('Google Workspace', () => {
+      it('should extract Google Docs URLs', () => {
+        const msg = createMessage('Doc: https://docs.google.com/document/d/1aBcDeFgHiJkLmNoPqRsTuVwXyZ/edit');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'gdoc',
+          value: 'gdoc:1aBcDeFgHiJkLmNoPqRsTuVwXyZ',
+          raw: 'docs.google.com/document/d/1aBcDeFgHiJkLmNoPqRsTuVwXyZ',
+          messageTs: '1234.5678',
+        });
+      });
+
+      it('should extract Google Sheets URLs', () => {
+        const msg = createMessage('Sheet: https://docs.google.com/spreadsheets/d/1XyZ-AbC_123/edit#gid=0');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'gsheet',
+          value: 'gsheet:1XyZ-AbC_123',
+          raw: 'docs.google.com/spreadsheets/d/1XyZ-AbC_123',
+          messageTs: '1234.5678',
+        });
+      });
+
+      it('should extract Google Slides URLs', () => {
+        const msg = createMessage('Slides: https://docs.google.com/presentation/d/1PrEsEnTaTiOn/edit');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'gslide',
+          value: 'gslide:1PrEsEnTaTiOn',
+          raw: 'docs.google.com/presentation/d/1PrEsEnTaTiOn',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('GitLab', () => {
+      it('should extract GitLab issue URLs', () => {
+        const msg = createMessage('Issue: https://gitlab.com/org/repo/-/issues/42');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'gitlab',
+          value: 'gitlab:42',
+          raw: 'gitlab.com/org/repo/-/issues/42',
+          messageTs: '1234.5678',
+        });
+      });
+
+      it('should extract GitLab merge request URLs', () => {
+        const msg = createMessage('MR: https://gitlab.com/org/repo/-/merge_requests/123');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'gitlab',
+          value: 'gitlab:123',
+          raw: 'gitlab.com/org/repo/-/merge_requests/123',
+          messageTs: '1234.5678',
+        });
+      });
+
+      it('should extract GitLab URLs with nested groups', () => {
+        const msg = createMessage('Issue: https://gitlab.com/org/group/subgroup/project/-/issues/99');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'gitlab',
+          value: 'gitlab:99',
+          raw: 'gitlab.com/org/group/subgroup/project/-/issues/99',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('Sentry', () => {
+      it('should extract Sentry issue URLs', () => {
+        const msg = createMessage('Error: https://sentry.io/organizations/my-org/issues/12345678/');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'sentry',
+          value: 'sentry:12345678',
+          raw: 'sentry.io/organizations/my-org/issues/12345678',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('Asana', () => {
+      it('should extract Asana task URLs', () => {
+        const msg = createMessage('Task: https://app.asana.com/0/123456789/987654321');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'asana',
+          value: 'asana:987654321',
+          raw: 'app.asana.com/0/123456789/987654321',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('ClickUp', () => {
+      it('should extract ClickUp task URLs', () => {
+        const msg = createMessage('Task: https://app.clickup.com/t/abc123xyz');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'clickup',
+          value: 'clickup:abc123xyz',
+          raw: 'app.clickup.com/t/abc123xyz',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('Datadog', () => {
+      it('should extract Datadog dashboard URLs', () => {
+        const msg = createMessage('Dashboard: https://app.datadoghq.com/dashboard/abc-123-xyz');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'datadog',
+          value: 'datadog:abc-123-xyz',
+          raw: 'app.datadoghq.com/dashboard/abc-123-xyz',
+          messageTs: '1234.5678',
+        });
+      });
+
+      it('should extract Datadog monitor URLs', () => {
+        const msg = createMessage('Monitor: https://app.datadoghq.com/monitors/12345');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'datadog',
+          value: 'datadog:12345',
+          raw: 'app.datadoghq.com/monitors/12345',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('PagerDuty', () => {
+      it('should extract PagerDuty incident URLs', () => {
+        const msg = createMessage('Incident: https://mycompany.pagerduty.com/incidents/P1234ABC');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'pagerduty',
+          value: 'pagerduty:P1234ABC',
+          raw: 'mycompany.pagerduty.com/incidents/P1234ABC',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('Zendesk', () => {
+      it('should extract Zendesk ticket URLs', () => {
+        const msg = createMessage('Ticket: https://support.zendesk.com/agent/tickets/12345');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'zendesk',
+          value: 'zendesk:12345',
+          raw: 'support.zendesk.com/agent/tickets/12345',
+          messageTs: '1234.5678',
+        });
+      });
+    });
+
+    describe('Salesforce', () => {
+      it('should extract Salesforce case URLs (My Domain)', () => {
+        const msg = createMessage('Case: https://company.my.salesforce.com/lightning/r/Case/5001234567890ABCDE/view');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'salesforce',
+          value: 'sfdc:5001234567890ABCDE',
+          raw: 'company.my.salesforce.com/lightning/r/Case/5001234567890ABCDE',
+          messageTs: '1234.5678',
+        });
+      });
+
+      it('should extract Salesforce Lightning URLs', () => {
+        const msg = createMessage('Case: https://company.lightning.force.com/lightning/r/Case/500ABC123DEF456GH/view');
+        const refs = extractReferencesFromMessage(msg);
+
+        expect(refs).toContainEqual({
+          type: 'salesforce',
+          value: 'sfdc:500ABC123DEF456GH',
+          raw: 'company.lightning.force.com/lightning/r/Case/500ABC123DEF456GH',
+          messageTs: '1234.5678',
+        });
+      });
     });
   });
 

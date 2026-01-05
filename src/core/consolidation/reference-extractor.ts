@@ -2,20 +2,46 @@ import { Conversation } from '../models/conversation.js';
 import { SlackMessage } from '../models/slack.js';
 
 /**
+ * All supported reference types
+ */
+export type ReferenceType =
+  // Code & Issues
+  | 'github_issue'
+  | 'github_pr'
+  | 'github_url'
+  | 'gitlab'
+  | 'ticket' // Jira, Linear, Shortcut, etc. (PREFIX-123 format)
+  // Documentation
+  | 'confluence'
+  | 'notion'
+  | 'gdoc'
+  | 'gsheet'
+  | 'gslide'
+  // Design
+  | 'figma'
+  // Project Management
+  | 'asana'
+  | 'clickup'
+  // Monitoring & Ops
+  | 'sentry'
+  | 'datadog'
+  | 'pagerduty'
+  | 'aws_log_group'
+  // Support
+  | 'zendesk'
+  | 'salesforce'
+  // Other
+  | 'error_pattern'
+  | 'url'
+  | 'user_mention'
+  | 'service_name'
+  | 'slack_message';
+
+/**
  * Represents a reference found in a message (GitHub issue, error pattern, etc.)
  */
 export interface Reference {
-  type:
-    | 'github_issue'
-    | 'github_pr'
-    | 'github_url'
-    | 'error_pattern'
-    | 'jira_ticket'
-    | 'url'
-    | 'user_mention'
-    | 'aws_log_group'
-    | 'service_name'
-    | 'slack_message';
+  type: ReferenceType;
   value: string; // Normalized value (e.g., "#2068", "AUTH-123", "U12345")
   raw: string; // Original match from text
   messageTs: string; // Timestamp of the message containing this reference
@@ -32,38 +58,201 @@ export interface ConversationReferences {
 }
 
 /**
- * Pattern definitions for reference extraction
+ * Pattern extractor definition
  */
-const PATTERNS = {
+interface PatternExtractor {
+  type: ReferenceType;
+  pattern: RegExp;
+  /** Extract normalized value from regex match. Return null to skip this match. */
+  normalize: (match: RegExpExecArray) => string | null;
+}
+
+/**
+ * Slack message link pattern (shared between extractor and parseSlackMessageLinks)
+ * Matches: https://[workspace].slack.com/archives/[channel]/p[timestamp]
+ */
+const SLACK_MESSAGE_LINK_PATTERN = /https?:\/\/[\w-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p(\d+)(?:\?[^\s]*)?/gi;
+
+/**
+ * Convert Slack message timestamp from URL format to API format
+ * e.g., "1234567890123456" -> "1234567890.123456"
+ */
+function normalizeSlackTimestamp(timestamp: string): string {
+  return timestamp.length > 10
+    ? `${timestamp.slice(0, 10)}.${timestamp.slice(10)}`
+    : timestamp;
+}
+
+/**
+ * Pattern registry for reference extraction
+ * Each extractor defines its type, regex pattern, and normalization function
+ */
+const EXTRACTORS: PatternExtractor[] = [
   // GitHub issues: #123 (standalone) or org/repo#123
   // Requires whitespace/start before # to avoid matching word#123
-  github_issue: /(?:^|[\s([])(?:([\w-]+\/[\w-]+)#|#)(\d+)\b/g,
+  {
+    type: 'github_issue',
+    pattern: /(?:^|[\s([])(?:[\w-]+\/[\w-]+#|#)(\d+)\b/g,
+    normalize: (m) => `#${m[1]}`,
+  },
 
   // GitHub PR/issue URLs: github.com/owner/repo/issues/123 or /pull/123
-  github_url: /github\.com\/[\w-]+\/[\w-]+\/(?:issues|pull)\/(\d+)/gi,
+  {
+    type: 'github_url',
+    pattern: /github\.com\/[\w-]+\/[\w-]+\/(?:issues|pull)\/(\d+)/gi,
+    normalize: (m) => `#${m[1]}`, // Normalize to same format as issues
+  },
 
-  // Jira-style tickets: PROJ-123, AUTH-456 (require at least 2 capital letters)
-  jira_ticket: /\b([A-Z]{2,}[A-Z0-9]*-\d+)\b/g,
+  // GitLab URLs: gitlab.com/owner/repo/-/issues/123 or /-/merge_requests/123
+  // Supports nested groups: gitlab.com/org/group/subgroup/project/-/issues/123
+  {
+    type: 'gitlab',
+    pattern: /gitlab\.com\/[\w-]+(?:\/[\w-]+)+\/-\/(?:issues|merge_requests)\/(\d+)/gi,
+    normalize: (m) => `gitlab:${m[1]}`,
+  },
+
+  // Tickets: Jira, Linear, Shortcut, etc. (PREFIX-123 format)
+  // Requires at least 2 capital letters
+  {
+    type: 'ticket',
+    pattern: /\b([A-Z]{2,}[A-Z0-9]*-\d+)\b/g,
+    normalize: (m) => m[1].toUpperCase(),
+  },
+
+  // Figma: figma.com/file/{id}, figma.com/design/{id}, figma.com/board/{id}
+  {
+    type: 'figma',
+    pattern: /figma\.com\/(?:file|design|board)\/([a-zA-Z0-9]+)/gi,
+    normalize: (m) => `figma:${m[1]}`,
+  },
+
+  // Notion: notion.so/{workspace}/{page-id} or notion.site/...
+  // Page IDs are 32-char hex strings or UUID format (8-4-4-4-12 with dashes)
+  {
+    type: 'notion',
+    pattern: /notion\.(?:so|site)\/(?:[\w-]+\/)*([a-f0-9]{32}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/gi,
+    normalize: (m) => `notion:${m[1].replace(/-/g, '')}`,
+  },
+
+  // Confluence: atlassian.net/wiki/spaces/{space}/pages/{pageId}
+  {
+    type: 'confluence',
+    pattern: /atlassian\.net\/wiki\/spaces\/[\w-]+\/pages\/(\d+)/gi,
+    normalize: (m) => `confluence:${m[1]}`,
+  },
+
+  // Google Docs: docs.google.com/document/d/{id}
+  {
+    type: 'gdoc',
+    pattern: /docs\.google\.com\/document\/d\/([\w-]+)/gi,
+    normalize: (m) => `gdoc:${m[1]}`,
+  },
+
+  // Google Sheets: docs.google.com/spreadsheets/d/{id}
+  {
+    type: 'gsheet',
+    pattern: /docs\.google\.com\/spreadsheets\/d\/([\w-]+)/gi,
+    normalize: (m) => `gsheet:${m[1]}`,
+  },
+
+  // Google Slides: docs.google.com/presentation/d/{id}
+  {
+    type: 'gslide',
+    pattern: /docs\.google\.com\/presentation\/d\/([\w-]+)/gi,
+    normalize: (m) => `gslide:${m[1]}`,
+  },
+
+  // Asana: app.asana.com/0/{project}/{taskId}
+  {
+    type: 'asana',
+    pattern: /app\.asana\.com\/\d+\/\d+\/(\d+)/gi,
+    normalize: (m) => `asana:${m[1]}`,
+  },
+
+  // ClickUp: app.clickup.com/t/{taskId}
+  {
+    type: 'clickup',
+    pattern: /app\.clickup\.com\/t\/([a-z0-9]+)/gi,
+    normalize: (m) => `clickup:${m[1]}`,
+  },
+
+  // Sentry: sentry.io/organizations/{org}/issues/{issueId}
+  {
+    type: 'sentry',
+    pattern: /sentry\.io\/(?:organizations\/)?[\w-]+\/issues\/(\d+)/gi,
+    normalize: (m) => `sentry:${m[1]}`,
+  },
+
+  // Datadog: app.datadoghq.com/dashboard/{id} or /monitors/{id} or /apm/...
+  {
+    type: 'datadog',
+    pattern: /app\.datadoghq\.com\/(?:dashboard|monitors|apm|logs)\/([a-zA-Z0-9-]+)/gi,
+    normalize: (m) => `datadog:${m[1]}`,
+  },
+
+  // PagerDuty: {subdomain}.pagerduty.com/incidents/{id}
+  {
+    type: 'pagerduty',
+    pattern: /[\w-]+\.pagerduty\.com\/incidents\/([A-Z0-9]+)/gi,
+    normalize: (m) => `pagerduty:${m[1]}`,
+  },
+
+  // Zendesk: {subdomain}.zendesk.com/agent/tickets/{id}
+  {
+    type: 'zendesk',
+    pattern: /[\w-]+\.zendesk\.com\/agent\/tickets\/(\d+)/gi,
+    normalize: (m) => `zendesk:${m[1]}`,
+  },
+
+  // Salesforce: supports multiple URL formats
+  // - Classic: na123.salesforce.com/.../Case/{id}
+  // - My Domain: company.my.salesforce.com/.../Case/{id}
+  // - Lightning: company.lightning.force.com/.../Case/{id}
+  {
+    type: 'salesforce',
+    pattern: /[\w-]+\.(?:(?:my\.)?salesforce|lightning\.force)\.com\/.*?(?:Case|cases)\/([a-zA-Z0-9]{15,18})/gi,
+    normalize: (m) => `sfdc:${m[1]}`,
+  },
 
   // Error patterns: PascalCase errors like NetworkError, NullPointerException
   // HTTP status codes require "error" or "status" after them
-  error_pattern: /\b([A-Z][a-z]+(?:[A-Z][a-z]*)*(?:Error|Exception))\b|\b([45]\d{2})\s+(?:error|status)\b/gi,
+  {
+    type: 'error_pattern',
+    pattern: /\b([A-Z][a-z]+(?:[A-Z][a-z]*)*(?:Error|Exception))\b|\b([45]\d{2})\s+(?:error|status)\b/gi,
+    normalize: (m) => {
+      const errorName = m[1] || m[2];
+      return errorName ? errorName.toLowerCase() : null;
+    },
+  },
 
   // Slack user mentions: <@U12345|display_name> or <@U12345>
-  user_mention: /<@(U[A-Z0-9]+)(?:\|[^>]+)?>/g,
+  {
+    type: 'user_mention',
+    pattern: /<@(U[A-Z0-9]+)(?:\|[^>]+)?>/g,
+    normalize: (m) => m[1],
+  },
 
   // AWS CloudWatch log groups: extract log group name from CloudWatch URLs
-  // Matches: log-group/service-name or log-group$252F (URL encoded)
-  aws_log_group: /cloudwatch[^#]*#[^/]*log-groups\/log-group(?:\/|%252F|\$252F)([a-zA-Z0-9_-]+)/gi,
+  {
+    type: 'aws_log_group',
+    pattern: /cloudwatch[^#]*#[^/]*log-groups\/log-group(?:\/|%252F|\$252F)([a-zA-Z0-9_-]+)/gi,
+    normalize: (m) => m[1].toLowerCase(),
+  },
 
   // Service names: patterns like xxx-auth, xxx-api, xxx-web, xxx-service
-  // Must be preceded by word boundary or common separators
-  service_name: /\b([a-zA-Z][a-zA-Z0-9]*(?:prd|stg|dev|prod|stage)?-(?:auth|api|web|service|worker|backend|frontend|core|app))\b/gi,
+  {
+    type: 'service_name',
+    pattern: /\b([a-zA-Z][a-zA-Z0-9]*(?:prd|stg|dev|prod|stage)?-(?:auth|api|web|service|worker|backend|frontend|core|app))\b/gi,
+    normalize: (m) => m[1].toLowerCase(),
+  },
 
   // Slack message links: https://[workspace].slack.com/archives/[channel]/p[timestamp]
-  // Captures channel ID and timestamp for normalization
-  slack_message: /https?:\/\/[\w-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p(\d+)(?:\?[^\s]*)?/gi,
-};
+  {
+    type: 'slack_message',
+    pattern: SLACK_MESSAGE_LINK_PATTERN,
+    normalize: (m) => `slack:${m[1]}:${normalizeSlackTimestamp(m[2])}`,
+  },
+];
 
 /**
  * Parsed Slack message link
@@ -80,19 +269,16 @@ export interface SlackMessageLink {
  */
 export function parseSlackMessageLinks(text: string): SlackMessageLink[] {
   const links: SlackMessageLink[] = [];
-  const regex = /https?:\/\/[\w-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p(\d+)(?:\?[^\s]*)?/gi;
+  // Create new regex instance to avoid shared state issues with global flag
+  const regex = new RegExp(SLACK_MESSAGE_LINK_PATTERN.source, SLACK_MESSAGE_LINK_PATTERN.flags);
 
   for (const match of text.matchAll(regex)) {
     const channelId = match[1];
     const timestamp = match[2];
     if (channelId && timestamp) {
-      // Convert p1234567890123456 to 1234567890.123456
-      const ts = timestamp.length > 10
-        ? `${timestamp.slice(0, 10)}.${timestamp.slice(10)}`
-        : timestamp;
       links.push({
         channelId,
-        messageTs: ts,
+        messageTs: normalizeSlackTimestamp(timestamp),
         raw: match[0],
       });
     }
@@ -102,114 +288,27 @@ export function parseSlackMessageLinks(text: string): SlackMessageLink[] {
 }
 
 /**
- * Extract references from a single message
+ * Extract references from a single message using the pattern registry
  */
 export function extractReferencesFromMessage(message: SlackMessage): Reference[] {
   const text = message.text || '';
   const references: Reference[] = [];
 
-  // Extract GitHub issues (#123 or repo#123)
-  for (const match of text.matchAll(PATTERNS.github_issue)) {
-    // Group 1 is optional repo prefix, group 2 is issue number
-    const issueNum = match[2];
-    if (issueNum) {
-      references.push({
-        type: 'github_issue',
-        value: `#${issueNum}`,
-        raw: match[0].trim(),
-        messageTs: message.ts,
-      });
-    }
-  }
+  for (const extractor of EXTRACTORS) {
+    // Reset regex state for global patterns
+    extractor.pattern.lastIndex = 0;
 
-  // Extract GitHub URLs
-  for (const match of text.matchAll(PATTERNS.github_url)) {
-    const issueNum = match[1];
-    references.push({
-      type: 'github_url',
-      value: `#${issueNum}`, // Normalize to same format as issues
-      raw: match[0],
-      messageTs: message.ts,
-    });
-  }
-
-  // Extract Jira tickets (PROJ-123)
-  for (const match of text.matchAll(PATTERNS.jira_ticket)) {
-    references.push({
-      type: 'jira_ticket',
-      value: match[1].toUpperCase(),
-      raw: match[0],
-      messageTs: message.ts,
-    });
-  }
-
-  // Extract error patterns
-  for (const match of text.matchAll(PATTERNS.error_pattern)) {
-    const errorName = match[1] || match[2];
-    if (errorName) {
-      references.push({
-        type: 'error_pattern',
-        value: errorName.toLowerCase(),
-        raw: match[0],
-        messageTs: message.ts,
-      });
-    }
-  }
-
-  // Extract user mentions (<@U12345|name> or <@U12345>)
-  for (const match of text.matchAll(PATTERNS.user_mention)) {
-    const userId = match[1];
-    if (userId) {
-      references.push({
-        type: 'user_mention',
-        value: userId, // Already normalized (e.g., U12345)
-        raw: match[0],
-        messageTs: message.ts,
-      });
-    }
-  }
-
-  // Extract AWS CloudWatch log group names from URLs
-  for (const match of text.matchAll(PATTERNS.aws_log_group)) {
-    const logGroup = match[1];
-    if (logGroup) {
-      references.push({
-        type: 'aws_log_group',
-        value: logGroup.toLowerCase(), // Normalize to lowercase
-        raw: match[0],
-        messageTs: message.ts,
-      });
-    }
-  }
-
-  // Extract service names (xxx-auth, xxx-api, etc.)
-  for (const match of text.matchAll(PATTERNS.service_name)) {
-    const serviceName = match[1];
-    if (serviceName) {
-      references.push({
-        type: 'service_name',
-        value: serviceName.toLowerCase(), // Normalize to lowercase
-        raw: match[0],
-        messageTs: message.ts,
-      });
-    }
-  }
-
-  // Extract Slack message links
-  for (const match of text.matchAll(PATTERNS.slack_message)) {
-    const channelId = match[1];
-    const timestamp = match[2];
-    if (channelId && timestamp) {
-      // Normalize to slack:channel:ts format (convert p1234567890123456 to 1234567890.123456)
-      const ts = timestamp.length > 10
-        ? `${timestamp.slice(0, 10)}.${timestamp.slice(10)}`
-        : timestamp;
-      references.push({
-        type: 'slack_message',
-        value: `slack:${channelId}:${ts}`,
-        raw: match[0],
-        messageTs: message.ts,
-      });
+    let match: RegExpExecArray | null;
+    while ((match = extractor.pattern.exec(text)) !== null) {
+      const value = extractor.normalize(match);
+      if (value !== null) {
+        references.push({
+          type: extractor.type,
+          value,
+          raw: match[0].trim(),
+          messageTs: message.ts,
+        });
+      }
     }
   }
 
