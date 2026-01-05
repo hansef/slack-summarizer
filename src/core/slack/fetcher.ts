@@ -159,17 +159,27 @@ export class DataFetcher {
       async (threadKey) => {
         const [channelId, threadTs] = threadKey.split(':');
         const threadMessages = await this.fetchThreadReplies(channelId, threadTs);
+
+        // Filter thread messages to only include those within the original time range
+        // This prevents threads that started before the range from polluting the summary
+        const filteredMessages = threadMessages.filter((msg) => {
+          const msgTimeMs = parseFloat(msg.ts) * 1000;
+          return msgTimeMs >= originalStartMs && msgTimeMs <= originalEndMs;
+        });
+
         return {
           threadTs,
           channel: channelId,
-          messages: threadMessages,
+          messages: filteredMessages,
         };
       },
       slackConcurrency
     );
     logger.timeEnd('fetchUserActivity:fetchThreads', { threads: threadResults.length });
 
-    threadsParticipated.push(...threadResults);
+    // Only include threads that have messages within the time range
+    const filteredThreads = threadResults.filter((t) => t.messages.length > 0);
+    threadsParticipated.push(...filteredThreads);
 
     // Step 4: Fetch @mentions
     logger.timeStart('fetchUserActivity:fetchMentions');

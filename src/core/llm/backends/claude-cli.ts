@@ -131,6 +131,12 @@ export class ClaudeCliBackend implements ClaudeBackend {
             stderr: stderr.substring(0, 500),
           });
           reject(new Error(`Claude CLI exited with code ${code}: ${stderr}`));
+        } else if (!stdout.trim()) {
+          // Claude CLI sometimes returns empty responses on rate limits or errors
+          logger.error('Claude CLI returned empty response', {
+            stderr: stderr.substring(0, 500),
+          });
+          reject(new Error('Claude CLI returned empty response'));
         } else {
           logger.debug('Claude CLI completed', { stdoutLength: stdout.length });
           resolve(stdout);
