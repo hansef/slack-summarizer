@@ -8,7 +8,7 @@ import {
   type Config,
   type ConfigFile,
 } from './schema.js';
-import { configFileExists, getConfigFilePath, getDisplayPath } from './paths.js';
+import { configFileExists, getConfigFilePath, getDisplayPath, getDefaultDbPath } from './paths.js';
 import { logger } from '../utils/logger.js';
 
 // Load .env file on module import (same as before)
@@ -81,14 +81,20 @@ export function getConfig(): Config {
     });
   }
 
-  // Merge: env vars override file config
+  // Merge: env vars override file config override computed defaults
   // Convert file config values to strings for process.env compatibility
   const stringifiedFileConfig: Record<string, string> = {};
   for (const [key, value] of Object.entries(fileConfig)) {
     stringifiedFileConfig[key] = String(value);
   }
 
+  // Computed defaults that can't be static in the schema (require runtime paths)
+  const computedDefaults: Record<string, string> = {
+    SLACK_SUMMARIZER_DB_PATH: getDefaultDbPath(),
+  };
+
   const merged = {
+    ...computedDefaults,
     ...stringifiedFileConfig,
     ...process.env,
   };

@@ -52,4 +52,9 @@ export {
   type ClaudeModel,
 } from './schema.js';
 
-export { ensureConfigDir } from './paths.js';
+export {
+  ensureConfigDir,
+  ensureDataDir,
+  getDataDir,
+  getDefaultDbPath,
+} from './paths.js';

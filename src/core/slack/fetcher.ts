@@ -121,14 +121,25 @@ export class DataFetcher {
     logger.timeEnd('fetchUserActivity:fetchChannelMessages', { channels: channelResults.length });
 
     // Process results
+    // Note: We fetch with extended time range (24h lookback) for context,
+    // but messagesSent should only include messages within the original time range
+    const originalStartMs = timeRange.start.toMillis();
+    const originalEndMs = timeRange.end.toMillis();
+
     for (const { channelId, messages: channelMessages } of channelResults) {
       for (const msg of channelMessages.allMessages) {
         allMessages.push(msg);
-        if (msg.user === targetUserId) {
+
+        // Only count as "sent" if within the ORIGINAL time range (not the 24h lookback)
+        const msgTimeMs = parseFloat(msg.ts) * 1000;
+        const isWithinOriginalRange = msgTimeMs >= originalStartMs && msgTimeMs <= originalEndMs;
+
+        if (msg.user === targetUserId && isWithinOriginalRange) {
           messagesSent.push(msg);
         }
 
         // Also track threads from channel history (in case we missed any)
+        // Still use extended range for thread discovery to get full context
         if (msg.thread_ts && msg.user === targetUserId) {
           threadTsSet.add(`${channelId}:${msg.thread_ts}`);
         }

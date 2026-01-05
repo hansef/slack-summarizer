@@ -72,15 +72,30 @@ function isClaudeCliAvailable(): boolean {
  * Test a Claude OAuth token by making a minimal CLI call.
  */
 async function testOAuthToken(oauthToken: string): Promise<void> {
+  const TIMEOUT_MS = 30_000; // 30 second timeout for test
+
   return new Promise((resolve, reject) => {
-    const child = spawn('claude', ['-p', 'Say "ok"', '--output-format', 'json'], {
-      env: {
-        ...process.env,
-        CLAUDE_CODE_OAUTH_TOKEN: oauthToken,
-        ANTHROPIC_API_KEY: '', // Clear to ensure OAuth is used
-      },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const child = spawn(
+      'claude',
+      ['-p', 'Say "ok"', '--output-format', 'json', '--no-session-persistence'],
+      {
+        env: {
+          ...process.env,
+          CLAUDE_CODE_OAUTH_TOKEN: oauthToken,
+          ANTHROPIC_API_KEY: '', // Clear to ensure OAuth is used
+        },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }
+    );
+
+    // Close stdin immediately - prompt is passed via args, not stdin
+    child.stdin.end();
+
+    // Set up timeout to kill hung processes
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM');
+      reject(new Error(`OAuth test timed out after ${TIMEOUT_MS / 1000}s`));
+    }, TIMEOUT_MS);
 
     let stderr = '';
 
@@ -89,6 +104,7 @@ async function testOAuthToken(oauthToken: string): Promise<void> {
     });
 
     child.on('close', (code) => {
+      clearTimeout(timeout);
       if (code !== 0) {
         reject(new Error(stderr || `CLI exited with code ${code}`));
       } else {
@@ -97,6 +113,7 @@ async function testOAuthToken(oauthToken: string): Promise<void> {
     });
 
     child.on('error', (err) => {
+      clearTimeout(timeout);
       reject(new Error(`Failed to spawn claude CLI: ${err.message}`));
     });
   });

@@ -17,10 +17,10 @@ export function getDatabase(): Database.Database {
 
   const dbPath = getEnv().SLACK_SUMMARIZER_DB_PATH;
 
-  // Ensure the directory exists
+  // Ensure the directory exists with restricted permissions
   const dbDir = dirname(dbPath);
   if (!existsSync(dbDir)) {
-    mkdirSync(dbDir, { recursive: true });
+    mkdirSync(dbDir, { recursive: true, mode: 0o700 });
     logger.info('Created cache directory', { path: dbDir });
   }
 
