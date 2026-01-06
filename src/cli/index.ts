@@ -18,6 +18,7 @@ program
 
 interface DefaultOptions {
   batch?: boolean;
+  verbose?: boolean;
   date: string;
   span: string;
   format: 'json' | 'markdown';
@@ -29,6 +30,7 @@ interface DefaultOptions {
 // Default command - launches TUI unless --batch is specified
 program
   .option('--batch', 'Run in non-interactive batch mode (use with summarize options)')
+  .option('-v, --verbose', 'Enable verbose debug logging')
   .option('-d, --date <date>', 'Target date for batch mode (today, yesterday, YYYY-MM-DD)', 'today')
   .option('-s, --span <span>', 'Time span for batch mode (day, week)', 'day')
   .option('-f, --format <format>', 'Output format for batch mode (json, markdown)', 'json')
@@ -37,6 +39,10 @@ program
   .option('-u, --user <userId>', 'Slack user ID for batch mode (defaults to token owner)')
   .action(async (options: DefaultOptions) => {
     if (options.batch) {
+      // Set log level to debug if verbose flag is set
+      if (options.verbose) {
+        process.env.SLACK_SUMMARIZER_LOG_LEVEL = 'debug';
+      }
       // Batch mode - run the original summarize command
       await summarizeCommand({
         date: options.date,
@@ -57,13 +63,20 @@ program
 program
   .command('summarize')
   .description('Generate activity summary (batch mode)')
+  .option('-v, --verbose', 'Enable verbose debug logging')
   .option('-d, --date <date>', 'Target date (today, yesterday, YYYY-MM-DD)', 'today')
   .option('-s, --span <span>', 'Time span (day, week)', 'day')
   .option('-f, --format <format>', 'Output format (json, markdown)', 'json')
   .option('-o, --output <file>', 'Output file path (defaults based on format)')
   .option('-m, --model <model>', 'Claude model (haiku, sonnet)', 'haiku')
   .option('-u, --user <userId>', 'Slack user ID (defaults to token owner)')
-  .action(summarizeCommand);
+  .action((options: DefaultOptions) => {
+    // Set log level to debug if verbose flag is set
+    if (options.verbose) {
+      process.env.SLACK_SUMMARIZER_LOG_LEVEL = 'debug';
+    }
+    return summarizeCommand(options);
+  });
 
 program
   .command('cache')

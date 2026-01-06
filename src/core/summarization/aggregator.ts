@@ -62,7 +62,7 @@ export class SummaryAggregator {
     const targetUserId = userId ?? (await this.slackClient.getCurrentUserId());
     const timezone = getEnv().SLACK_SUMMARIZER_TIMEZONE;
 
-    logger.info('Generating summary', {
+    logger.debug('Generating summary', {
       userId: targetUserId,
       timespan,
       start: formatISO(timeRange.start),
@@ -86,7 +86,7 @@ export class SummaryAggregator {
 
     // Step 3: Group messages by channel, segment, consolidate, and summarize
     this.emitProgress({ stage: 'segmenting', message: 'Processing conversations...', total: activity.channels.length });
-    logger.info('Segmenting, consolidating, and summarizing conversations...');
+    logger.debug('Segmenting, consolidating, and summarizing conversations...');
     logger.timeStart('generateSummary:buildChannelSummaries');
     const channelSummaries = await this.buildChannelSummaries(
       activity,
@@ -343,7 +343,7 @@ export class SummaryAggregator {
     const env = getEnv();
     const channelConcurrency = env.SLACK_SUMMARIZER_CHANNEL_CONCURRENCY;
 
-    logger.info('Processing channels in parallel', {
+    logger.debug('Processing channels in parallel', {
       totalChannels,
       concurrency: channelConcurrency,
     });
@@ -415,7 +415,7 @@ export class SummaryAggregator {
         });
         const consolidateDuration = performance.now() - consolidateStart;
 
-        logger.info('Consolidated channel', {
+        logger.debug('Consolidated channel', {
           channel: channelName,
           originalSegments: segmentResult.conversations.length,
           consolidatedTopics: consolidationResult.groups.length,
@@ -446,7 +446,7 @@ export class SummaryAggregator {
         const summarizeDuration = performance.now() - summarizeStart;
 
         const channelTotalDuration = performance.now() - channelStartTime;
-        logger.info('[PERF] Channel processing complete', {
+        logger.debug('[PERF] Channel processing complete', {
           channel: channelName,
           segmentMs: Math.round(segmentDuration),
           consolidateMs: Math.round(consolidateDuration),
@@ -566,7 +566,7 @@ export class SummaryAggregator {
       batches.push(groups.slice(i, i + batchSize));
     }
 
-    logger.info('Summarizing topics in parallel', {
+    logger.debug('Summarizing topics in parallel', {
       totalBatches,
       totalGroups: groups.length,
       concurrency: claudeConcurrency,
@@ -698,7 +698,7 @@ export class SummaryAggregator {
     }
 
     if (enrichedCount > 0) {
-      logger.info('Enriched Slack message links', { enrichedCount });
+      logger.debug('Enriched Slack message links', { enrichedCount });
     }
   }
 

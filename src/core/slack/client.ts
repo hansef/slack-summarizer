@@ -86,7 +86,7 @@ export class SlackClient {
       cursor = response.response_metadata?.next_cursor;
     } while (cursor);
 
-    logger.info('Listed channels', { count: channels.length });
+    logger.debug('Listed channels', { count: channels.length });
     return channels;
   }
 
@@ -228,7 +228,7 @@ export class SlackClient {
       }
     }
 
-    logger.info('Search completed', { query: fullQuery, count: messages.length });
+    logger.debug('Search completed', { query: fullQuery, count: messages.length });
     return messages;
   }
 
@@ -307,7 +307,7 @@ export class SlackClient {
       }
     }
 
-    logger.info('Found reactions given', { userId, count: reactions.length });
+    logger.debug('Found reactions given', { userId, count: reactions.length });
     return reactions;
   }
 
@@ -435,7 +435,7 @@ export class SlackClient {
       cursor = response.response_metadata?.next_cursor;
     } while (cursor);
 
-    logger.info('Listed users', { count: users.length });
+    logger.debug('Listed users', { count: users.length });
     return users;
   }
 

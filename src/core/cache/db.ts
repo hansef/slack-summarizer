@@ -21,7 +21,7 @@ export function getDatabase(): Database.Database {
   const dbDir = dirname(dbPath);
   if (!existsSync(dbDir)) {
     mkdirSync(dbDir, { recursive: true, mode: 0o700 });
-    logger.info('Created cache directory', { path: dbDir });
+    logger.debug('Created cache directory', { path: dbDir });
   }
 
   db = new Database(dbPath);
@@ -31,7 +31,7 @@ export function getDatabase(): Database.Database {
   // Run migrations
   initializeSchema(db);
 
-  logger.info('Database initialized', { path: dbPath });
+  logger.debug('Database initialized', { path: dbPath });
   return db;
 }
 

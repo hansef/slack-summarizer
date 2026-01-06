@@ -50,10 +50,11 @@ export async function summarizeCommand(options: SummarizeOptions): Promise<void>
   const startTime = Date.now();
   const useStdout = options.output === '-';
 
-  // Suppress status messages when outputting to stdout, use progress mode instead
-  if (useStdout) {
-    logger.enableProgressMode();
-  } else {
+  // Always enable progress mode in batch command - shows single updating ⏳ line
+  // This suppresses verbose logs (unless --verbose flag sets level to debug)
+  logger.enableProgressMode();
+
+  if (!useStdout) {
     output.info('Starting Slack activity summary...');
     output.info(`Date: ${options.date}, Span: ${options.span}, Format: ${options.format}`);
     output.info(`Model: ${options.model}`);

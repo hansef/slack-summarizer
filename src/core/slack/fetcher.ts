@@ -46,7 +46,7 @@ export class DataFetcher {
     // Get current user if not specified
     const targetUserId = userId ?? (await this.client.getCurrentUserId());
 
-    logger.info('Fetching user activity', {
+    logger.debug('Fetching user activity', {
       userId: targetUserId,
       start: formatISO(timeRange.start),
       end: formatISO(timeRange.end),
@@ -78,7 +78,7 @@ export class DataFetcher {
       }
     }
 
-    logger.info('Identified threads from search', {
+    logger.debug('Identified threads from search', {
       threadCount: threadTsSet.size,
     });
 
@@ -92,7 +92,7 @@ export class DataFetcher {
     let processedChannels = 0;
     const slackConcurrency = getEnv().SLACK_SUMMARIZER_SLACK_CONCURRENCY;
 
-    logger.info('Fetching channel messages in parallel', {
+    logger.debug('Fetching channel messages in parallel', {
       totalChannels,
       concurrency: slackConcurrency,
     });
@@ -147,7 +147,7 @@ export class DataFetcher {
     }
 
     // Step 3: Fetch full threads the user participated in (in parallel)
-    logger.info('Fetching thread details in parallel', {
+    logger.debug('Fetching thread details in parallel', {
       threadCount: threadTsSet.size,
       concurrency: slackConcurrency,
     });
@@ -245,7 +245,7 @@ export class DataFetcher {
     channelMap: Map<string, SlackChannel>;
     userSearchMessages: SlackMessage[];
   }> {
-    logger.info('Searching for user messages to identify active channels', {
+    logger.debug('Searching for user messages to identify active channels', {
       userId,
       start: formatISO(timeRange.start),
       end: formatISO(timeRange.end),
@@ -276,7 +276,7 @@ export class DataFetcher {
       }
     }
 
-    logger.info('Identified active channels from search', {
+    logger.debug('Identified active channels from search', {
       messagesFound: userMessages.length,
       activeChannelCount: activeChannelIds.size,
     });
@@ -301,7 +301,7 @@ export class DataFetcher {
       }
     }
 
-    logger.info('Filtered to active channels', {
+    logger.debug('Filtered to active channels', {
       totalChannels: allChannels.length,
       activeChannels: activeChannels.length,
     });

@@ -397,7 +397,7 @@ export function enrichConversations(
   });
 
   if (totalContextAdded > 0) {
-    logger.info('Context enrichment complete', {
+    logger.debug('Context enrichment complete', {
       conversationsEnriched: mentionLookbackCount + shortSegmentCount,
       mentionLookbacks: mentionLookbackCount,
       shortSegmentExpansions: shortSegmentCount,

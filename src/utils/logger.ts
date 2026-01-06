@@ -149,7 +149,7 @@ export const logger = {
     const duration = performance.now() - startTime;
     timings.delete(label);
     const durationSec = (duration / 1000).toFixed(2);
-    log('info', `[PERF] ${label}`, { ...context, durationMs: Math.round(duration), durationSec: `${durationSec}s` });
+    log('debug', `[PERF] ${label}`, { ...context, durationMs: Math.round(duration), durationSec: `${durationSec}s` });
   },
 
   /** Execute an async function with timing instrumentation */
@@ -160,7 +160,7 @@ export const logger = {
     } finally {
       const duration = performance.now() - startTime;
       const durationSec = (duration / 1000).toFixed(2);
-      log('info', `[PERF] ${label}`, { ...context, durationMs: Math.round(duration), durationSec: `${durationSec}s` });
+      log('debug', `[PERF] ${label}`, { ...context, durationMs: Math.round(duration), durationSec: `${durationSec}s` });
     }
   },
 };
