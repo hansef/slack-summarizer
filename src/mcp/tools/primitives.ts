@@ -1,8 +1,52 @@
 import { z } from 'zod';
-import { getSlackClient } from '../../core/slack/client.js';
+import { getSlackClient, SlackClient } from '../../core/slack/client.js';
 import { parseTimespan } from '../../utils/dates.js';
 import { logger } from '../../utils/logger.js';
 import type { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+
+/**
+ * Resolves user IDs to display names for enriching MCP responses.
+ * Uses on-demand fetching with caching via SlackClient.getUserInfo().
+ *
+ * @returns Map of user ID to display name (null if resolution failed)
+ */
+async function resolveUserNames(
+  messages: Array<{ user?: string }>,
+  slackClient: SlackClient
+): Promise<Map<string, string | null>> {
+  const userIds = new Set(messages.map((m) => m.user).filter(Boolean) as string[]);
+  const userNames = new Map<string, string | null>();
+
+  await Promise.all(
+    Array.from(userIds).map(async (userId) => {
+      try {
+        const user = await slackClient.getUserInfo(userId);
+        // Priority: real_name > display_name > name (matches aggregator.ts pattern)
+        const displayName = user.real_name || user.display_name || user.name;
+        userNames.set(userId, displayName);
+      } catch {
+        // Only set null on actual API failure
+        userNames.set(userId, null);
+      }
+    })
+  );
+
+  return userNames;
+}
+
+/**
+ * Creates a user object with both ID and resolved name for MCP responses.
+ */
+function buildUserObject(
+  userId: string | undefined,
+  userNames: Map<string, string | null>
+): { id: string; name: string | null } | null {
+  if (!userId) return null;
+  return {
+    id: userId,
+    name: userNames.get(userId) ?? null,
+  };
+}
 
 // Input schemas for primitive tools
 const SearchMessagesInputSchema = z.object({
@@ -163,9 +207,14 @@ export async function handlePrimitiveTool(
         }
 
         const messages = await slackClient.searchMessages(query, timeRange);
-        const results = messages.slice(0, input.limit).map((msg) => ({
+        const limitedMessages = messages.slice(0, input.limit);
+
+        // Resolve user IDs to display names
+        const userNames = await resolveUserNames(limitedMessages, slackClient);
+
+        const results = limitedMessages.map((msg) => ({
           channel: msg.channel,
-          user: msg.user,
+          user: buildUserObject(msg.user, userNames),
           timestamp: msg.ts,
           text: msg.text,
         }));
@@ -182,9 +231,14 @@ export async function handlePrimitiveTool(
         const timeRange = parseTimespan(input.timespan);
 
         const messages = await slackClient.getChannelHistory(input.channel_id, timeRange);
-        const results = messages.slice(0, input.limit).map((msg) => ({
+        const limitedMessages = messages.slice(0, input.limit);
+
+        // Resolve user IDs to display names
+        const userNames = await resolveUserNames(limitedMessages, slackClient);
+
+        const results = limitedMessages.map((msg) => ({
           timestamp: msg.ts,
-          user: msg.user,
+          user: buildUserObject(msg.user, userNames),
           text: msg.text,
           thread_ts: msg.thread_ts,
           reply_count: msg.reply_count,
@@ -204,9 +258,13 @@ export async function handlePrimitiveTool(
         const input = GetThreadInputSchema.parse(args);
 
         const messages = await slackClient.getThreadReplies(input.channel_id, input.thread_ts);
+
+        // Resolve user IDs to display names
+        const userNames = await resolveUserNames(messages, slackClient);
+
         const results = messages.map((msg) => ({
           timestamp: msg.ts,
-          user: msg.user,
+          user: buildUserObject(msg.user, userNames),
           text: msg.text,
         }));
 
