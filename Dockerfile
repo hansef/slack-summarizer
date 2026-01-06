@@ -15,7 +15,7 @@ RUN pnpm build
 # Runtime stage
 FROM node:20-alpine
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm @anthropic-ai/claude-code
 
 WORKDIR /app
 
