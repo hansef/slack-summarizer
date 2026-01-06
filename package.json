@@ -8,7 +8,7 @@
     "slack-summarizer": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "dev:cli": "tsx src/cli/index.ts",
     "dev:mcp": "tsx src/mcp/server.ts",
     "test": "vitest run",
@@ -54,6 +54,7 @@
     "eslint-config-prettier": "^9.1.0",
     "ink-testing-library": "^4.0.0",
     "prettier": "^3.2.0",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.7.0",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
