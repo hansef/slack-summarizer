@@ -567,6 +567,7 @@ Done!`;
           allMessages: [
             {
               type: 'message',
+              text: '',
               ts: '1704067200.000000',
               channel: 'C123',
               user: 'U123',

@@ -433,8 +433,8 @@ export function SettingsScreen({ onBack }: SettingsScreenProps): React.ReactElem
         <Box marginTop={1}>
           <Select
             options={[
-              { label: 'Haiku (faster, cheaper)', value: 'claude-haiku-4-5-20251001' },
               { label: 'Sonnet (higher quality)', value: 'claude-sonnet-4-5-20250929' },
+              { label: 'Haiku (faster, cheaper)', value: 'claude-haiku-4-5-20251001' },
             ]}
             onChange={handleModelChange}
           />
@@ -586,7 +586,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps): React.ReactElem
                   : '(not set)';
               break;
             case 'model':
-              currentValue = config.anthropic?.model || 'claude-haiku-4-5-20251001';
+              currentValue = config.anthropic?.model || 'claude-sonnet-4-5-20250929';
               break;
             case 'timezone':
               currentValue = config.settings?.timezone || 'America/Los_Angeles';

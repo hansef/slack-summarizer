@@ -7,7 +7,7 @@ concurrency = 8
 
 [anthropic]
 api_key = "sk-ant-api-test-key-12345"
-model = "claude-haiku-4-5-20251001"
+model = "claude-sonnet-4-5-20250929"
 concurrency = 15
 
 [database]

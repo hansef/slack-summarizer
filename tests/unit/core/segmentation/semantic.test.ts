@@ -3,11 +3,11 @@ import { SlackMessage } from '@/core/models/slack.js';
 import { resetEnvCache } from '@/utils/env.js';
 
 // Use vi.hoisted to create mock functions before vi.mock runs
-const { mockCreateMessage, mockGetBackend, mockProvider } = vi.hoisted(() => {
+const { mockCreateMessage, mockProvider } = vi.hoisted(() => {
   const mockCreateMessage = vi.fn();
   const mockGetBackend = vi.fn(() => ({ createMessage: mockCreateMessage }));
   const mockProvider = { getBackend: mockGetBackend, getBackendType: vi.fn(() => 'sdk') };
-  return { mockCreateMessage, mockGetBackend, mockProvider };
+  return { mockCreateMessage, mockProvider };
 });
 
 // Mock the Claude provider
@@ -218,7 +218,7 @@ describe('Semantic Segmentation', () => {
 
       await analyzeConversationBoundaries([messages[0], messages[1]]);
 
-      const call = mockCreateMessage.mock.calls[0][0];
+      const call = mockCreateMessage.mock.calls[0][0] as { messages: Array<{ content: string }> };
       expect(call.messages[0].content).toContain('U123');
       expect(call.messages[0].content).toContain('U456');
     });

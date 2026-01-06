@@ -2,6 +2,8 @@
  * CLI output formatting utilities
  */
 
+/* eslint-disable no-console */
+
 const isTTY = process.stdout.isTTY ?? false;
 
 // ANSI color codes (only used when TTY is available)

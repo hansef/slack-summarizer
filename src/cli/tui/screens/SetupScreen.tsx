@@ -436,8 +436,8 @@ export function SetupScreen({ onComplete, onSkip }: SetupScreenProps): React.Rea
           <Box marginTop={1}>
             <Select
               options={[
-                { label: 'Haiku (faster, cheaper)', value: 'claude-haiku-4-5-20251001' },
                 { label: 'Sonnet (higher quality)', value: 'claude-sonnet-4-5-20250929' },
+                { label: 'Haiku (faster, cheaper)', value: 'claude-haiku-4-5-20251001' },
               ]}
               onChange={handleModelSelect}
             />

@@ -52,7 +52,7 @@ describe('env', () => {
       expect(env.ANTHROPIC_API_KEY).toBe('sk-ant-test-key');
       expect(env.SLACK_SUMMARIZER_DB_PATH).toBe(getDefaultDbPath());
       expect(env.SLACK_SUMMARIZER_LOG_LEVEL).toBe('info');
-      expect(env.SLACK_SUMMARIZER_CLAUDE_MODEL).toBe('claude-haiku-4-5-20251001');
+      expect(env.SLACK_SUMMARIZER_CLAUDE_MODEL).toBe('claude-sonnet-4-5-20250929');
       expect(env.SLACK_SUMMARIZER_TIMEZONE).toBe('America/Los_Angeles');
     });
 

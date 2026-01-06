@@ -182,7 +182,7 @@ Slack API → DataFetcher → Segmentation → Context Enrichment → Consolidat
 - `SLACK_SUMMARIZER_LOG_LEVEL` - Log level (default: `info`)
 - `SLACK_SUMMARIZER_TIMEZONE` - Timezone for dates (default: `America/Los_Angeles`)
 - `SLACK_SUMMARIZER_RATE_LIMIT` - Slack API requests/second (default: 10)
-- `SLACK_SUMMARIZER_CLAUDE_MODEL` - Claude model for summarization (default: `claude-haiku-4-5-20251001`)
+- `SLACK_SUMMARIZER_CLAUDE_MODEL` - Claude model for summarization (default: `claude-sonnet-4-5-20250929`)
 
 ## Code Patterns
 

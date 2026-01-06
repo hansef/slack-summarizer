@@ -15,7 +15,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type Database from 'better-sqlite3';
 import type { SlackMessage, SlackChannel, UserActivityData } from '@/core/models/slack.js';
-import type { ConversationGroup } from '@/core/consolidation/consolidator.js';
+import type { SlackClient } from '@/core/slack/client.js';
+import type { DataFetcher } from '@/core/slack/fetcher.js';
+import type { ProgressEvent } from '@/core/summarization/aggregator.js';
 import { resetEnvCache } from '@/utils/env.js';
 
 // ============================================================================
@@ -83,8 +85,13 @@ const testMessages: SlackMessage[] = [
 ];
 
 const testActivityData: UserActivityData = {
+  userId: TEST_USER_ID,
+  timeRange: {
+    start: '2024-01-01T00:00:00Z',
+    end: '2024-01-01T23:59:59Z',
+  },
   messagesSent: testMessages.filter((m) => m.user === TEST_USER_ID),
-  allChannelMessages: new Map([[TEST_CHANNEL_ID, testMessages]]),
+  allChannelMessages: testMessages,
   channels: testChannels,
   threadsParticipated: [],
   mentionsReceived: [],
@@ -139,7 +146,7 @@ vi.mock('@/core/cache/db.js', () => ({
   }),
   closeDatabase: vi.fn(),
   resetDatabase: vi.fn(),
-  transaction: vi.fn((fn) => {
+  transaction: vi.fn(<T>(fn: (db: Database.Database) => T) => {
     if (!mockState.db) {
       throw new Error('Test database not initialized');
     }
@@ -287,11 +294,9 @@ describe('Pipeline Integration', () => {
         TEST_USER_ID,
         testMessages
       );
-      const channelNames = new Map([[TEST_CHANNEL_ID, TEST_CHANNEL_NAME]]);
 
       const consolidationResult = await consolidateConversations(
-        segmentResult.conversations,
-        channelNames
+        segmentResult.conversations
       );
 
       expect(consolidationResult.groups.length).toBeGreaterThan(0);
@@ -325,11 +330,9 @@ describe('Pipeline Integration', () => {
         TEST_USER_ID,
         messagesWithRefs
       );
-      const channelNames = new Map([[TEST_CHANNEL_ID, TEST_CHANNEL_NAME]]);
 
       const consolidationResult = await consolidateConversations(
-        segmentResult.conversations,
-        channelNames
+        segmentResult.conversations
       );
 
       // Should have extracted PROJ-123 reference
@@ -349,8 +352,8 @@ describe('Pipeline Integration', () => {
 
       // Create aggregator with mocked dependencies
       const aggregator = new SummaryAggregator({
-        slackClient: mockState.slackClient as any,
-        dataFetcher: mockDataFetcher as any,
+        slackClient: mockState.slackClient as unknown as SlackClient,
+        dataFetcher: mockDataFetcher as unknown as DataFetcher,
       });
 
       const result = await aggregator.generateSummary('today', TEST_USER_ID);
@@ -374,8 +377,8 @@ describe('Pipeline Integration', () => {
       };
 
       const aggregator = new SummaryAggregator({
-        slackClient: mockState.slackClient as any,
-        dataFetcher: mockDataFetcher as any,
+        slackClient: mockState.slackClient as unknown as SlackClient,
+        dataFetcher: mockDataFetcher as unknown as DataFetcher,
       });
 
       await aggregator.generateSummary('today', TEST_USER_ID);
@@ -385,14 +388,14 @@ describe('Pipeline Integration', () => {
     });
 
     it('should emit progress events', async () => {
-      const progressEvents: any[] = [];
+      const progressEvents: ProgressEvent[] = [];
       const mockDataFetcher = {
         fetchUserActivity: vi.fn().mockResolvedValue(testActivityData),
       };
 
       const aggregator = new SummaryAggregator({
-        slackClient: mockState.slackClient as any,
-        dataFetcher: mockDataFetcher as any,
+        slackClient: mockState.slackClient as unknown as SlackClient,
+        dataFetcher: mockDataFetcher as unknown as DataFetcher,
         onProgress: (event) => progressEvents.push(event),
       });
 
@@ -410,8 +413,8 @@ describe('Pipeline Integration', () => {
       };
 
       const aggregator = new SummaryAggregator({
-        slackClient: mockState.slackClient as any,
-        dataFetcher: mockDataFetcher as any,
+        slackClient: mockState.slackClient as unknown as SlackClient,
+        dataFetcher: mockDataFetcher as unknown as DataFetcher,
       });
 
       await aggregator.generateSummary('today', TEST_USER_ID);
@@ -422,8 +425,13 @@ describe('Pipeline Integration', () => {
 
     it('should handle empty activity gracefully', async () => {
       const emptyActivityData: UserActivityData = {
+        userId: TEST_USER_ID,
+        timeRange: {
+          start: '2024-01-01T00:00:00Z',
+          end: '2024-01-01T23:59:59Z',
+        },
         messagesSent: [],
-        allChannelMessages: new Map(),
+        allChannelMessages: [],
         channels: [],
         threadsParticipated: [],
         mentionsReceived: [],
@@ -435,8 +443,8 @@ describe('Pipeline Integration', () => {
       };
 
       const aggregator = new SummaryAggregator({
-        slackClient: mockState.slackClient as any,
-        dataFetcher: mockDataFetcher as any,
+        slackClient: mockState.slackClient as unknown as SlackClient,
+        dataFetcher: mockDataFetcher as unknown as DataFetcher,
       });
 
       const result = await aggregator.generateSummary('today', TEST_USER_ID);
@@ -456,8 +464,8 @@ describe('Pipeline Integration', () => {
       };
 
       const aggregator = new SummaryAggregator({
-        slackClient: mockState.slackClient as any,
-        dataFetcher: mockDataFetcher as any,
+        slackClient: mockState.slackClient as unknown as SlackClient,
+        dataFetcher: mockDataFetcher as unknown as DataFetcher,
       });
 
       // Should still produce output (with fallback summaries)
@@ -474,8 +482,8 @@ describe('Pipeline Integration', () => {
       };
 
       const aggregator = new SummaryAggregator({
-        slackClient: mockState.slackClient as any,
-        dataFetcher: mockDataFetcher as any,
+        slackClient: mockState.slackClient as unknown as SlackClient,
+        dataFetcher: mockDataFetcher as unknown as DataFetcher,
       });
 
       // Should produce output with fallback handling
@@ -486,7 +494,7 @@ describe('Pipeline Integration', () => {
   });
 
   describe('Cache Integration', () => {
-    it('should use SQLite database for operations', async () => {
+    it('should use SQLite database for operations', () => {
       // The test database should be initialized
       expect(mockState.db).not.toBeNull();
 

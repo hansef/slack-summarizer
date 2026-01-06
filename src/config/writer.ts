@@ -64,7 +64,7 @@ export function formatConfigToml(config: ConfigFile): string {
 
     if (config.anthropic.model) {
       lines.push('# Claude model for summarization');
-      lines.push('# Options: claude-haiku-4-5-20251001, claude-sonnet-4-5-20250929');
+      lines.push('# Options: claude-sonnet-4-5-20250929 (default), claude-haiku-4-5-20251001');
       lines.push(`model = "${config.anthropic.model}"`);
       lines.push('');
     }

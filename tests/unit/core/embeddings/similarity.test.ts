@@ -7,9 +7,9 @@ const { mockEmbed, mockEmbedBatch, mockGetModel, mockGetCachedEmbedding, mockSet
   mockEmbed: vi.fn(),
   mockEmbedBatch: vi.fn(),
   mockGetModel: vi.fn(() => 'text-embedding-3-small'),
-  mockGetCachedEmbedding: vi.fn(() => null),
+  mockGetCachedEmbedding: vi.fn().mockReturnValue(null),
   mockSetCachedEmbedding: vi.fn(),
-  mockGetCachedEmbeddingsBatch: vi.fn(() => new Map()),
+  mockGetCachedEmbeddingsBatch: vi.fn().mockReturnValue(new Map()),
   mockSetCachedEmbeddingsBatch: vi.fn(),
 }));
 
@@ -39,6 +39,7 @@ import {
   prepareConversationEmbeddings,
   getConversationEmbedding,
 } from '@/core/embeddings/similarity.js';
+import type { CachedEmbedding } from '@/core/embeddings/cache.js';
 
 function createMessage(text: string, ts = '1234.5678'): SlackMessage {
   return {
@@ -402,7 +403,7 @@ describe('Embedding Similarity', () => {
       await prepareConversationEmbeddings([conv]);
 
       expect(mockSetCachedEmbeddingsBatch).toHaveBeenCalledTimes(1);
-      const cachedEmbeddings = mockSetCachedEmbeddingsBatch.mock.calls[0][0];
+      const cachedEmbeddings = mockSetCachedEmbeddingsBatch.mock.calls[0][0] as CachedEmbedding[];
       expect(cachedEmbeddings).toHaveLength(1);
       expect(cachedEmbeddings[0].conversationId).toBe('conv-1');
     });

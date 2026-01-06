@@ -100,7 +100,7 @@ export const ConfigSchema = z.object({
   // Optional with defaults
   SLACK_SUMMARIZER_DB_PATH: z.string().default('./cache/slack.db'),
   SLACK_SUMMARIZER_LOG_LEVEL: LogLevelSchema.default('info'),
-  SLACK_SUMMARIZER_CLAUDE_MODEL: ClaudeModelSchema.default('claude-haiku-4-5-20251001'),
+  SLACK_SUMMARIZER_CLAUDE_MODEL: ClaudeModelSchema.default('claude-sonnet-4-5-20250929'),
   SLACK_SUMMARIZER_TIMEZONE: z.string().default('America/Los_Angeles'),
   SLACK_SUMMARIZER_RATE_LIMIT: z.coerce.number().positive().default(10),
 
