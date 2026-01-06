@@ -36,7 +36,7 @@ pnpm dev:cli                  # launches interactive TUI
 - **Smart Consolidation** - Groups related conversations by shared references (GitHub issues, Jira tickets, error patterns) for coherent narrative summaries
 - **Semantic Embeddings** - Optional OpenAI embeddings to consolidate semantically related conversations even without shared explicit references
 - **Narrative Summaries** - 2-4 sentence story arcs with key events, references, and outcomes instead of terse fragments
-- **Bot Message Merging** - GitHub and CircleCI bot messages are merged into adjacent human discussions
+- **Bot Message Merging** - Bot messages (e.g. GitHub, etc) are merged into adjacent human discussions
 - **Message Caching** - SQLite-based caching to minimize API calls on repeat queries
 - **Flexible Time Ranges** - Supports `today`, `yesterday`, `last-week`, or ISO date ranges (`YYYY-MM-DD..YYYY-MM-DD`)
 - **Dual Interface** - Use interactively via TUI, batch mode for scripting, or integrate with Claude via MCP server
@@ -256,7 +256,7 @@ Create a `.env` file or set these in your shell:
 | `OPENAI_API_KEY` | No | OpenAI API key (for embeddings) | - |
 | `SLACK_SUMMARIZER_DB_PATH` | No | SQLite cache location | `./cache/slack.db` |
 | `SLACK_SUMMARIZER_LOG_LEVEL` | No | Log level (debug, info, warn, error) | `info` |
-| `SLACK_SUMMARIZER_CLAUDE_MODEL` | No | Claude model for summarization | `claude-haiku-4-5-20251001` |
+| `SLACK_SUMMARIZER_CLAUDE_MODEL` | No | Claude model for summarization | `claude-sonnet-4-5-20250929` |
 | `SLACK_SUMMARIZER_TIMEZONE` | No | Timezone for date calculations | `America/Los_Angeles` |
 | `SLACK_SUMMARIZER_RATE_LIMIT` | No | Slack API requests per second | `10` |
 | `SLACK_SUMMARIZER_ENABLE_EMBEDDINGS` | No | Enable semantic embeddings for consolidation | `false` |
@@ -295,8 +295,8 @@ slack-summarizer summarize --date 2024-01-15
 # Summarize a week
 slack-summarizer summarize --date 2024-01-15 --span week
 
-# Use a different model (haiku is default, sonnet for higher quality)
-slack-summarizer summarize --model sonnet
+# Use a different model (sonnet is default, haiku for faster/cheaper)
+slack-summarizer summarize --model haiku
 
 # Output to a specific file
 slack-summarizer summarize --output ./my-summary.json
@@ -326,7 +326,7 @@ slack-summarizer summarize -f markdown -o -
 | `-s, --span <span>` | Time span (day, week) | `day` |
 | `-f, --format <format>` | Output format (json, markdown) | `json` |
 | `-o, --output <file>` | Output file path (use `-` for stdout) | `./slack-summary.json` or `./slack-summary.md` |
-| `-m, --model <model>` | Claude model (haiku, sonnet) | `haiku` |
+| `-m, --model <model>` | Claude model (haiku, sonnet) | `sonnet` |
 | `-u, --user <userId>` | Slack user ID | Token owner |
 
 ## MCP Server
@@ -342,7 +342,7 @@ The easiest way to run the MCP server:
 docker pull ghcr.io/hansef/slack-summarizer:latest
 
 # Add to Claude Code
-claude mcp add-json slack-summarizer '{
+claude mcp add-json slack-summarizer --scope user '{
   "type": "stdio",
   "command": "docker",
   "args": [
@@ -350,6 +350,8 @@ claude mcp add-json slack-summarizer '{
     "-v", "slack-summarizer-cache:/cache",
     "-e", "SLACK_USER_TOKEN=xoxp-your-token",
     "-e", "ANTHROPIC_API_KEY=sk-ant-your-key",
+    "-e", "OPENAI_API_KEY=sk-your-openai-key",
+    "-e", "SLACK_SUMMARIZER_ENABLE_EMBEDDINGS=true",
     "-e", "SLACK_SUMMARIZER_TIMEZONE=America/Los_Angeles",
     "ghcr.io/hansef/slack-summarizer:latest"
   ]
@@ -358,13 +360,15 @@ claude mcp add-json slack-summarizer '{
 
 Then restart Claude Code to load the MCP server.
 
+> **OAuth Alternative:** If you have a Claude Pro/Max subscription, you can use your OAuth token instead of an Anthropic API key. Replace `-e ANTHROPIC_API_KEY=...` with `-e CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-your-token`. See [Claude OAuth Setup](#claude-oauth-setup) for how to obtain your token.
+
 **Optional environment variables:**
+
+> **Note:** The `OPENAI_API_KEY` and `SLACK_SUMMARIZER_ENABLE_EMBEDDINGS` in the example above are optional but **highly recommended** - embeddings significantly improve conversation grouping quality by detecting semantic relationships.
 
 | Flag | Description |
 |------|-------------|
-| `-e OPENAI_API_KEY=...` | Enable semantic embeddings for better conversation grouping |
-| `-e SLACK_SUMMARIZER_ENABLE_EMBEDDINGS=true` | Required with OpenAI key to enable embeddings |
-| `-e SLACK_SUMMARIZER_CLAUDE_MODEL=claude-sonnet-4-5-20250929` | Use Sonnet instead of Haiku (default) |
+| `-e SLACK_SUMMARIZER_CLAUDE_MODEL=claude-haiku-4-5-20251001` | Use Haiku instead of Sonnet (default) for faster/cheaper processing |
 
 ### From Source
 
