@@ -1,5 +1,5 @@
-import { getSlackClient } from '../core/slack/client.js';
-import { logger } from '../utils/logger.js';
+import { getSlackClient } from '@/core/slack/client.js';
+import { logger } from '@/utils/logger.js';
 import type { Resource } from '@modelcontextprotocol/sdk/types.js';
 
 export function getResources(): Resource[] {

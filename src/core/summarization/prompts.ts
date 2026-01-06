@@ -1,7 +1,7 @@
-import { Conversation } from '../models/conversation.js';
-import { ConversationGroup } from '../consolidation/consolidator.js';
-import { SlackMessage, SlackAttachment } from '../models/slack.js';
-import { isContextMessage, CONTEXT_SUBTYPES } from '../segmentation/context-enricher.js';
+import { Conversation } from '@/core/models/conversation.js';
+import { ConversationGroup } from '@/core/consolidation/consolidator.js';
+import { SlackMessage, SlackAttachment } from '@/core/models/slack.js';
+import { isContextMessage, CONTEXT_SUBTYPES } from '@/core/segmentation/context-enricher.js';
 
 export function buildConversationSummaryPrompt(
   conversation: Conversation,
@@ -368,7 +368,7 @@ Rules:
   - Include items explicitly flagged for future action ("dropping this here so we can...", "need to look into this", "flagging for later")
   - Include timing when mentioned (e.g., "by end of week", "tomorrow", "after QA approval")
   - Return empty array [] if there are no clear future actions - do not infer actions from general discussion
-- timesheetEntry: A concise, professional timesheet entry (10-15 words max)
+  - timesheetEntry: A concise, professional timesheet entry (10-15 words max)
   - Start with a past-tense action verb (e.g., "Reviewed", "Debugged", "Implemented", "Discussed", "Resolved")
   - Focus on the concrete work accomplished, not emotions or social dynamics
   - Include key technical context (project names, issue numbers, feature names)

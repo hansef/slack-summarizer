@@ -1,0 +1,11 @@
+# Valid TOML syntax but invalid schema values
+
+[slack]
+user_token = "invalid-token-no-xoxp-prefix"
+rate_limit = -5
+
+[anthropic]
+api_key = "invalid-key-no-sk-ant-prefix"
+
+[logging]
+level = "not-a-valid-level"

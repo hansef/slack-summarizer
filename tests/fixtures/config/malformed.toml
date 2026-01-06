@@ -1,0 +1,10 @@
+# Malformed TOML - syntax errors
+
+[slack
+user_token = "missing closing bracket
+
+[claude]
+api_key = missing quotes
+
+[settings
+  unclosed = "section

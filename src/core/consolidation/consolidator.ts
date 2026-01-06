@@ -1,4 +1,4 @@
-import { Conversation } from '../models/conversation.js';
+import { Conversation } from '@/core/models/conversation.js';
 import {
   ConversationReferences,
   extractReferencesFromAll,
@@ -9,8 +9,8 @@ import {
   prepareConversationEmbeddings,
   calculateHybridSimilarity,
   ConversationWithEmbedding,
-} from '../embeddings/similarity.js';
-import { logger } from '../../utils/logger.js';
+} from '@/core/embeddings/similarity.js';
+import { logger } from '@/utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 
 // ==========================================

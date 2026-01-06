@@ -1,24 +1,24 @@
-import { SlackClient, getSlackClient } from '../slack/client.js';
-import { DataFetcher, createDataFetcher } from '../slack/fetcher.js';
-import { hybridSegmentation } from '../segmentation/hybrid.js';
-import { consolidateConversations, ConversationGroup } from '../consolidation/consolidator.js';
-import { parseSlackMessageLinks } from '../consolidation/reference-extractor.js';
+import { SlackClient, getSlackClient } from '@/core/slack/client.js';
+import { DataFetcher, createDataFetcher } from '@/core/slack/fetcher.js';
+import { hybridSegmentation } from '@/core/segmentation/hybrid.js';
+import { consolidateConversations, ConversationGroup } from '@/core/consolidation/consolidator.js';
+import { parseSlackMessageLinks } from '@/core/consolidation/reference-extractor.js';
 import { SummarizationClient, getSummarizationClient } from './client.js';
-import { logger } from '../../utils/logger.js';
-import { getEnv } from '../../utils/env.js';
-import { parseTimespan, formatISO, now } from '../../utils/dates.js';
-import { mapWithConcurrency, mapWithGlobalClaudeLimiter } from '../../utils/concurrency.js';
+import { logger } from '@/utils/logger.js';
+import { getEnv } from '@/utils/env.js';
+import { parseTimespan, formatISO, now } from '@/utils/dates.js';
+import { mapWithConcurrency, mapWithGlobalClaudeLimiter } from '@/utils/concurrency.js';
 import {
   SummaryOutput,
   ChannelSummary,
   ConversationSummary,
-} from '../models/summary.js';
+} from '@/core/models/summary.js';
 import {
   UserActivityData,
   getChannelType,
   SlackChannel,
   SlackAttachment,
-} from '../models/slack.js';
+} from '@/core/models/slack.js';
 
 export interface ProgressEvent {
   stage: 'fetching' | 'segmenting' | 'consolidating' | 'summarizing' | 'complete';
@@ -28,7 +28,6 @@ export interface ProgressEvent {
 }
 
 export type ProgressCallback = (event: ProgressEvent) => void;
-
 export interface AggregatorConfig {
   slackClient?: SlackClient;
   summarizationClient?: SummarizationClient;

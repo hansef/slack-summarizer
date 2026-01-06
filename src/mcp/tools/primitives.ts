@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { getSlackClient, SlackClient } from '../../core/slack/client.js';
-import { parseTimespan } from '../../utils/dates.js';
-import { logger } from '../../utils/logger.js';
+import { getSlackClient, SlackClient } from '@/core/slack/client.js';
+import { parseTimespan } from '@/utils/dates.js';
+import { logger } from '@/utils/logger.js';
 import type { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 
 /**

@@ -1,7 +1,7 @@
-import { logger } from '../../utils/logger.js';
-import { SlackMessage } from '../models/slack.js';
-import { MessagePair } from '../models/conversation.js';
-import { getClaudeProvider, type ClaudeBackend } from '../llm/index.js';
+import { logger } from '@/utils/logger.js';
+import { SlackMessage } from '@/core/models/slack.js';
+import { MessagePair } from '@/core/models/conversation.js';
+import { getClaudeProvider, type ClaudeBackend } from '@/core/llm/index.js';
 
 const BATCH_SIZE = 20; // Process 20 message pairs at once
 

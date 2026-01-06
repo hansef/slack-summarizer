@@ -1,7 +1,7 @@
-import { Conversation } from '../models/conversation.js';
-import { SlackMessage } from '../models/slack.js';
-import { fromSlackTimestamp, getMinutesBetween } from '../../utils/dates.js';
-import { logger } from '../../utils/logger.js';
+import { Conversation } from '@/core/models/conversation.js';
+import { SlackMessage } from '@/core/models/slack.js';
+import { fromSlackTimestamp, getMinutesBetween } from '@/utils/dates.js';
+import { logger } from '@/utils/logger.js';
 
 /**
  * Configuration for context enrichment

@@ -5,9 +5,9 @@ import {
   calculateReferenceSimilarity,
   getRefsForSimilarity,
   parseSlackMessageLinks,
-} from '../../../../src/core/consolidation/reference-extractor.js';
-import { SlackMessage } from '../../../../src/core/models/slack.js';
-import { Conversation } from '../../../../src/core/models/conversation.js';
+} from '@/core/consolidation/reference-extractor.js';
+import { SlackMessage } from '@/core/models/slack.js';
+import { Conversation } from '@/core/models/conversation.js';
 
 function createMessage(text: string, ts = '1234.5678'): SlackMessage {
   return {

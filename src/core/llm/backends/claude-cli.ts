@@ -9,7 +9,7 @@ import { spawn } from 'child_process';
 import { mkdirSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { logger } from '../../../utils/logger.js';
+import { logger } from '@/utils/logger.js';
 import type { ClaudeBackend, MessageCreateParams, MessageResponse } from '../types.js';
 
 export interface ClaudeCliConfig {

@@ -4,9 +4,9 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { Box, Text, useInput, useStdout } from 'ink';
-import type { SummaryOutput } from '../../../core/models/summary.js';
-import type { DateRange } from '../../../utils/dates.js';
-import { formatSummaryAsMarkdown } from '../../formatters/markdown.js';
+import type { SummaryOutput } from '@/core/models/summary.js';
+import type { DateRange } from '@/utils/dates.js';
+import { formatSummaryAsMarkdown } from '@/cli/formatters/markdown.js';
 import { saveSummaryToFile, formatPathForDisplay } from '../utils/file-save.js';
 
 interface SummaryScreenProps {

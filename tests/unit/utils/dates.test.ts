@@ -11,8 +11,8 @@ import {
   getMinutesBetween,
   isValidTimezone,
   now,
-} from '../../../src/utils/dates.js';
-import { resetEnvCache } from '../../../src/utils/env.js';
+} from '@/utils/dates.js';
+import { resetEnvCache } from '@/utils/env.js';
 
 describe('dates', () => {
   const originalEnv = process.env;

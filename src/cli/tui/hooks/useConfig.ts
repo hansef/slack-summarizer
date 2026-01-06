@@ -3,9 +3,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { getConfig, resetConfigCache } from '../../../config/loader.js';
-import { configFileExists } from '../../../config/paths.js';
-import type { Config } from '../../../config/schema.js';
+import { getConfig, resetConfigCache } from '@/config/loader.js';
+import { configFileExists } from '@/config/paths.js';
+import type { Config } from '@/config/schema.js';
 
 export interface UseConfigReturn {
   config: Config | null;

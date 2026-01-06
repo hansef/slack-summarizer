@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { getHighLevelTools } from '../../../src/mcp/tools/high-level.js';
-import { getPrimitiveTools } from '../../../src/mcp/tools/primitives.js';
-import { getResources } from '../../../src/mcp/resources.js';
+import { getHighLevelTools } from '@/mcp/tools/high-level.js';
+import { getPrimitiveTools } from '@/mcp/tools/primitives.js';
+import { getResources } from '@/mcp/resources.js';
 
 describe('MCP Tools', () => {
   describe('High-Level Tools', () => {

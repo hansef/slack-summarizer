@@ -4,7 +4,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { DateRange } from '../../../utils/dates.js';
+import type { DateRange } from '@/utils/dates.js';
 
 /**
  * Generate a date-based filename for the summary.

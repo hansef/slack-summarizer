@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
-import { getEnv } from '../../utils/env.js';
-import { logger } from '../../utils/logger.js';
+import { getEnv } from '@/utils/env.js';
+import { logger } from '@/utils/logger.js';
 
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 const MAX_TOKENS = 8000;

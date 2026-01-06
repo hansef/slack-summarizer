@@ -4,7 +4,7 @@ import {
   SlackChannelSchema,
   getChannelType,
   UserActivityDataSchema,
-} from '../../../../src/core/models/slack.js';
+} from '@/core/models/slack.js';
 
 describe('Slack Models', () => {
   describe('SlackMessageSchema', () => {

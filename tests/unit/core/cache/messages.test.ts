@@ -15,10 +15,10 @@ import {
   getCachedChannel,
   clearCache,
   getCacheStats,
-} from '../../../../src/core/cache/messages.js';
-import { resetDatabase } from '../../../../src/core/cache/db.js';
-import { resetEnvCache } from '../../../../src/utils/env.js';
-import type { SlackMessage, SlackChannel, SlackReactionItem } from '../../../../src/core/models/slack.js';
+} from '@/core/cache/messages.js';
+import { resetDatabase } from '@/core/cache/db.js';
+import { resetEnvCache } from '@/utils/env.js';
+import type { SlackMessage, SlackChannel, SlackReactionItem } from '@/core/models/slack.js';
 
 const TEST_DB_PATH = './test-cache/test.db';
 

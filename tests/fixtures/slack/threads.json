@@ -1,0 +1,127 @@
+{
+  "simpleThread": {
+    "threadTs": "1704067200.000000",
+    "channel": "C123456",
+    "messages": [
+      {
+        "type": "message",
+        "ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Thread parent message",
+        "user": "U123456",
+        "reply_count": 2,
+        "reply_users_count": 2
+      },
+      {
+        "type": "message",
+        "ts": "1704067260.000000",
+        "thread_ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "First reply",
+        "user": "U789012"
+      },
+      {
+        "type": "message",
+        "ts": "1704067320.000000",
+        "thread_ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Second reply",
+        "user": "U123456"
+      }
+    ]
+  },
+  "longThread": {
+    "threadTs": "1704067200.000000",
+    "channel": "C123456",
+    "messages": [
+      {
+        "type": "message",
+        "ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Bug report: app crashes on startup",
+        "user": "U123456",
+        "reply_count": 5
+      },
+      {
+        "type": "message",
+        "ts": "1704067260.000000",
+        "thread_ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Can you share the stack trace?",
+        "user": "U789012"
+      },
+      {
+        "type": "message",
+        "ts": "1704067320.000000",
+        "thread_ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Here it is: NullPointerException at line 42",
+        "user": "U123456"
+      },
+      {
+        "type": "message",
+        "ts": "1704067380.000000",
+        "thread_ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Ah I see the issue, the config wasn't initialized",
+        "user": "U789012"
+      },
+      {
+        "type": "message",
+        "ts": "1704067440.000000",
+        "thread_ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "PR #789 fixes this",
+        "user": "U789012"
+      },
+      {
+        "type": "message",
+        "ts": "1704067500.000000",
+        "thread_ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Confirmed working now, thanks!",
+        "user": "U123456"
+      }
+    ]
+  },
+  "threadWithBotReplies": {
+    "threadTs": "1704067200.000000",
+    "channel": "C123456",
+    "messages": [
+      {
+        "type": "message",
+        "ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Deploy to staging",
+        "user": "U123456",
+        "reply_count": 3
+      },
+      {
+        "type": "message",
+        "subtype": "bot_message",
+        "ts": "1704067260.000000",
+        "thread_ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Deployment started...",
+        "user": "B123456"
+      },
+      {
+        "type": "message",
+        "subtype": "bot_message",
+        "ts": "1704067320.000000",
+        "thread_ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Deployment complete!",
+        "user": "B123456"
+      },
+      {
+        "type": "message",
+        "ts": "1704067380.000000",
+        "thread_ts": "1704067200.000000",
+        "channel": "C123456",
+        "text": "Thanks, verifying now",
+        "user": "U123456"
+      }
+    ]
+  }
+}

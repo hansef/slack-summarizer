@@ -8,8 +8,8 @@
  */
 
 import { execSync } from 'child_process';
-import { logger } from '../../utils/logger.js';
-import { getEnv } from '../../utils/env.js';
+import { logger } from '@/utils/logger.js';
+import { getEnv } from '@/utils/env.js';
 import type { ClaudeBackend } from './types.js';
 import { AnthropicSdkBackend } from './backends/anthropic-sdk.js';
 import { ClaudeCliBackend } from './backends/claude-cli.js';

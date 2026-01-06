@@ -1,30 +1,44 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Conversation } from '../../../../src/core/models/conversation.js';
-import { SlackMessage } from '../../../../src/core/models/slack.js';
-import {
-  prepareConversationText,
-  hashText,
-  cosineSimilarity,
-  calculateHybridSimilarity,
-} from '../../../../src/core/embeddings/similarity.js';
+import { Conversation } from '@/core/models/conversation.js';
+import { SlackMessage } from '@/core/models/slack.js';
 
-// Mock the embedding client module (only needed for embed operations, not cosineSimilarity)
-vi.mock('../../../../src/core/embeddings/client.js', () => ({
+// Use vi.hoisted to create mock functions before vi.mock runs
+const { mockEmbed, mockEmbedBatch, mockGetModel, mockGetCachedEmbedding, mockSetCachedEmbedding, mockGetCachedEmbeddingsBatch, mockSetCachedEmbeddingsBatch } = vi.hoisted(() => ({
+  mockEmbed: vi.fn(),
+  mockEmbedBatch: vi.fn(),
+  mockGetModel: vi.fn(() => 'text-embedding-3-small'),
+  mockGetCachedEmbedding: vi.fn(() => null),
+  mockSetCachedEmbedding: vi.fn(),
+  mockGetCachedEmbeddingsBatch: vi.fn(() => new Map()),
+  mockSetCachedEmbeddingsBatch: vi.fn(),
+}));
+
+// Mock the embedding client module
+vi.mock('@/core/embeddings/client.js', () => ({
   getEmbeddingClient: vi.fn(() => ({
-    embed: vi.fn(),
-    embedBatch: vi.fn(),
-    getModel: vi.fn(() => 'text-embedding-3-small'),
+    embed: mockEmbed,
+    embedBatch: mockEmbedBatch,
+    getModel: mockGetModel,
   })),
   resetEmbeddingClient: vi.fn(),
 }));
 
 // Mock the cache module
-vi.mock('../../../../src/core/embeddings/cache.js', () => ({
-  getCachedEmbedding: vi.fn(() => null),
-  setCachedEmbedding: vi.fn(),
-  getCachedEmbeddingsBatch: vi.fn(() => new Map()),
-  setCachedEmbeddingsBatch: vi.fn(),
+vi.mock('@/core/embeddings/cache.js', () => ({
+  getCachedEmbedding: mockGetCachedEmbedding,
+  setCachedEmbedding: mockSetCachedEmbedding,
+  getCachedEmbeddingsBatch: mockGetCachedEmbeddingsBatch,
+  setCachedEmbeddingsBatch: mockSetCachedEmbeddingsBatch,
 }));
+
+import {
+  prepareConversationText,
+  hashText,
+  cosineSimilarity,
+  calculateHybridSimilarity,
+  prepareConversationEmbeddings,
+  getConversationEmbedding,
+} from '@/core/embeddings/similarity.js';
 
 function createMessage(text: string, ts = '1234.5678'): SlackMessage {
   return {
@@ -147,7 +161,7 @@ describe('Embedding Similarity', () => {
   });
 
   describe('calculateHybridSimilarity', () => {
-    it('should return reference similarity when embeddings disabled', async () => {
+    it('should return reference similarity when embeddings disabled', () => {
       const conv1 = createConversation([createMessage('Hello')], 'conv-1');
       const conv2 = createConversation([createMessage('World')], 'conv-2');
 
@@ -162,7 +176,7 @@ describe('Embedding Similarity', () => {
         uniqueRefs: new Set(['#123']),
       };
 
-      const similarity = await calculateHybridSimilarity(
+      const similarity = calculateHybridSimilarity(
         conv1,
         conv2,
         refs1,
@@ -180,7 +194,7 @@ describe('Embedding Similarity', () => {
       expect(similarity).toBe(1.0);
     });
 
-    it('should return reference similarity when embeddings are null', async () => {
+    it('should return reference similarity when embeddings are null', () => {
       const conv1 = createConversation([createMessage('Hello')], 'conv-1');
       const conv2 = createConversation([createMessage('World')], 'conv-2');
 
@@ -195,7 +209,7 @@ describe('Embedding Similarity', () => {
         uniqueRefs: new Set(['U222']),
       };
 
-      const similarity = await calculateHybridSimilarity(
+      const similarity = calculateHybridSimilarity(
         conv1,
         conv2,
         refs1,
@@ -213,7 +227,7 @@ describe('Embedding Similarity', () => {
       expect(similarity).toBe(0);
     });
 
-    it('should combine reference and embedding similarity with weights', async () => {
+    it('should combine reference and embedding similarity with weights', () => {
       const conv1 = createConversation([createMessage('Hello')], 'conv-1');
       const conv2 = createConversation([createMessage('World')], 'conv-2');
 
@@ -233,7 +247,7 @@ describe('Embedding Similarity', () => {
       const emb1 = [1, 0, 0];
       const emb2 = [1, 0, 0];
 
-      const similarity = await calculateHybridSimilarity(conv1, conv2, refs1, refs2, emb1, emb2, {
+      const similarity = calculateHybridSimilarity(conv1, conv2, refs1, refs2, emb1, emb2, {
         enableEmbeddings: true,
         referenceWeight: 0.6,
         embeddingWeight: 0.4,
@@ -245,7 +259,7 @@ describe('Embedding Similarity', () => {
       expect(similarity).toBeCloseTo(0.4);
     });
 
-    it('should return 0 for orthogonal embeddings (no baseline contribution)', async () => {
+    it('should return 0 for orthogonal embeddings (no baseline contribution)', () => {
       const conv1 = createConversation([createMessage('Hello')], 'conv-1');
       const conv2 = createConversation([createMessage('World')], 'conv-2');
 
@@ -264,7 +278,7 @@ describe('Embedding Similarity', () => {
       const emb1 = [1, 0, 0];
       const emb2 = [0, 1, 0];
 
-      const similarity = await calculateHybridSimilarity(conv1, conv2, refs1, refs2, emb1, emb2, {
+      const similarity = calculateHybridSimilarity(conv1, conv2, refs1, refs2, emb1, emb2, {
         enableEmbeddings: true,
         referenceWeight: 0.6,
         embeddingWeight: 0.4,
@@ -277,7 +291,7 @@ describe('Embedding Similarity', () => {
       expect(similarity).toBe(0);
     });
 
-    it('should return 0 for negative cosine similarity', async () => {
+    it('should return 0 for negative cosine similarity', () => {
       const conv1 = createConversation([createMessage('Hello')], 'conv-1');
       const conv2 = createConversation([createMessage('World')], 'conv-2');
 
@@ -296,7 +310,7 @@ describe('Embedding Similarity', () => {
       const emb1 = [1, 0, 0];
       const emb2 = [-1, 0, 0];
 
-      const similarity = await calculateHybridSimilarity(conv1, conv2, refs1, refs2, emb1, emb2, {
+      const similarity = calculateHybridSimilarity(conv1, conv2, refs1, refs2, emb1, emb2, {
         enableEmbeddings: true,
         referenceWeight: 0.6,
         embeddingWeight: 0.4,
@@ -304,6 +318,155 @@ describe('Embedding Similarity', () => {
 
       // Negative cosine clamped to 0
       expect(similarity).toBe(0);
+    });
+  });
+
+  describe('prepareConversationEmbeddings', () => {
+    const mockEmbedding = [0.1, 0.2, 0.3];
+
+    beforeEach(() => {
+      mockGetCachedEmbeddingsBatch.mockReturnValue(new Map());
+      mockEmbedBatch.mockResolvedValue([mockEmbedding, mockEmbedding]);
+    });
+
+    it('should use cached embeddings when available', async () => {
+      const conv1 = createConversation([createMessage('Hello world')], 'conv-1');
+      const conv2 = createConversation([createMessage('Goodbye world')], 'conv-2');
+
+      // Set up cache to return embedding for conv-1
+      const cachedMap = new Map();
+      cachedMap.set('conv-1', {
+        conversationId: 'conv-1',
+        embedding: [0.5, 0.5, 0.5],
+        textHash: 'hash-1',
+        embeddingModel: 'text-embedding-3-small',
+        dimensions: 3,
+        createdAt: Date.now(),
+      });
+      mockGetCachedEmbeddingsBatch.mockReturnValue(cachedMap);
+      mockEmbedBatch.mockResolvedValue([[0.1, 0.2, 0.3]]); // Only one embedding needed
+
+      const result = await prepareConversationEmbeddings([conv1, conv2]);
+
+      expect(result.size).toBe(2);
+      // conv-1 should use cached embedding
+      expect(result.get('conv-1')?.embedding).toEqual([0.5, 0.5, 0.5]);
+      // conv-2 should use API embedding
+      expect(result.get('conv-2')?.embedding).toEqual([0.1, 0.2, 0.3]);
+    });
+
+    it('should generate embeddings for conversations not in cache', async () => {
+      const conv1 = createConversation([createMessage('Hello')], 'conv-1');
+      const conv2 = createConversation([createMessage('World')], 'conv-2');
+
+      mockEmbedBatch.mockResolvedValue([[0.1, 0.2], [0.3, 0.4]]);
+
+      const result = await prepareConversationEmbeddings([conv1, conv2]);
+
+      expect(result.size).toBe(2);
+      expect(result.get('conv-1')?.embedding).toEqual([0.1, 0.2]);
+      expect(result.get('conv-2')?.embedding).toEqual([0.3, 0.4]);
+      expect(mockEmbedBatch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return null embedding for conversations with empty text', async () => {
+      const conv1 = createConversation([createMessage('')], 'conv-1');
+      const conv2 = createConversation([createMessage('Has text')], 'conv-2');
+
+      mockEmbedBatch.mockResolvedValue([[0.1, 0.2]]);
+
+      const result = await prepareConversationEmbeddings([conv1, conv2]);
+
+      expect(result.size).toBe(2);
+      expect(result.get('conv-1')?.embedding).toBeNull();
+      expect(result.get('conv-2')?.embedding).toEqual([0.1, 0.2]);
+    });
+
+    it('should handle API errors gracefully', async () => {
+      const conv = createConversation([createMessage('Hello')], 'conv-1');
+
+      mockEmbedBatch.mockRejectedValue(new Error('API rate limit'));
+
+      const result = await prepareConversationEmbeddings([conv]);
+
+      // Should return null embedding on error, not throw
+      expect(result.size).toBe(1);
+      expect(result.get('conv-1')?.embedding).toBeNull();
+    });
+
+    it('should cache generated embeddings', async () => {
+      const conv = createConversation([createMessage('Hello')], 'conv-1');
+
+      mockEmbedBatch.mockResolvedValue([[0.1, 0.2, 0.3]]);
+
+      await prepareConversationEmbeddings([conv]);
+
+      expect(mockSetCachedEmbeddingsBatch).toHaveBeenCalledTimes(1);
+      const cachedEmbeddings = mockSetCachedEmbeddingsBatch.mock.calls[0][0];
+      expect(cachedEmbeddings).toHaveLength(1);
+      expect(cachedEmbeddings[0].conversationId).toBe('conv-1');
+    });
+
+    it('should handle empty conversation list', async () => {
+      const result = await prepareConversationEmbeddings([]);
+
+      expect(result.size).toBe(0);
+      expect(mockEmbedBatch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getConversationEmbedding', () => {
+    it('should return cached embedding when available', async () => {
+      const conv = createConversation([createMessage('Hello world')], 'conv-1');
+      const cachedEmbedding = [0.5, 0.5, 0.5];
+
+      mockGetCachedEmbedding.mockReturnValue({
+        conversationId: 'conv-1',
+        embedding: cachedEmbedding,
+        textHash: 'hash-1',
+        embeddingModel: 'text-embedding-3-small',
+        dimensions: 3,
+        createdAt: Date.now(),
+      });
+
+      const result = await getConversationEmbedding(conv);
+
+      expect(result).toEqual(cachedEmbedding);
+      expect(mockEmbed).not.toHaveBeenCalled();
+    });
+
+    it('should generate and cache embedding when not cached', async () => {
+      const conv = createConversation([createMessage('Hello world')], 'conv-1');
+      const generatedEmbedding = [0.1, 0.2, 0.3];
+
+      mockGetCachedEmbedding.mockReturnValue(null);
+      mockEmbed.mockResolvedValue(generatedEmbedding);
+
+      const result = await getConversationEmbedding(conv);
+
+      expect(result).toEqual(generatedEmbedding);
+      expect(mockEmbed).toHaveBeenCalledWith('Hello world');
+      expect(mockSetCachedEmbedding).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return null for conversation with empty text', async () => {
+      const conv = createConversation([createMessage('')], 'conv-1');
+
+      const result = await getConversationEmbedding(conv);
+
+      expect(result).toBeNull();
+      expect(mockEmbed).not.toHaveBeenCalled();
+    });
+
+    it('should return null and log error on API failure', async () => {
+      const conv = createConversation([createMessage('Hello')], 'conv-1');
+
+      mockGetCachedEmbedding.mockReturnValue(null);
+      mockEmbed.mockRejectedValue(new Error('API error'));
+
+      const result = await getConversationEmbedding(conv);
+
+      expect(result).toBeNull();
     });
   });
 });

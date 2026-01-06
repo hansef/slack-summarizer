@@ -10,7 +10,7 @@ import {
   createFullConfig,
   getConfigFilePath,
   getDisplayPath,
-} from '../../../config/index.js';
+} from '@/config/index.js';
 import {
   isClaudeCliAvailable,
   validateSlackToken,

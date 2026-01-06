@@ -1,0 +1,101 @@
+{
+  "simpleMessages": [
+    {
+      "type": "message",
+      "ts": "1704067200.000000",
+      "channel": "C123456",
+      "text": "Hello team!",
+      "user": "U123456"
+    },
+    {
+      "type": "message",
+      "ts": "1704067260.000000",
+      "channel": "C123456",
+      "text": "Hi there, ready to start?",
+      "user": "U789012"
+    }
+  ],
+  "threadMessages": [
+    {
+      "type": "message",
+      "ts": "1704067200.000000",
+      "channel": "C123456",
+      "text": "Starting a thread about the bug",
+      "user": "U123456",
+      "reply_count": 2
+    },
+    {
+      "type": "message",
+      "ts": "1704067260.000000",
+      "thread_ts": "1704067200.000000",
+      "channel": "C123456",
+      "text": "I think I found the issue",
+      "user": "U789012"
+    },
+    {
+      "type": "message",
+      "ts": "1704067320.000000",
+      "thread_ts": "1704067200.000000",
+      "channel": "C123456",
+      "text": "Great, let me check",
+      "user": "U123456"
+    }
+  ],
+  "botMessages": [
+    {
+      "type": "message",
+      "subtype": "bot_message",
+      "ts": "1704067200.000000",
+      "channel": "C123456",
+      "text": "Build #123 passed",
+      "user": "B123456"
+    },
+    {
+      "type": "message",
+      "subtype": "bot_message",
+      "ts": "1704067260.000000",
+      "channel": "C123456",
+      "text": "PR #456 merged",
+      "user": "B123456"
+    }
+  ],
+  "messagesWithReferences": [
+    {
+      "type": "message",
+      "ts": "1704067200.000000",
+      "channel": "C123456",
+      "text": "Working on #123 and AUTH-456",
+      "user": "U123456"
+    },
+    {
+      "type": "message",
+      "ts": "1704067260.000000",
+      "channel": "C123456",
+      "text": "Fixed #123, also found issue in AUTH-456",
+      "user": "U123456"
+    },
+    {
+      "type": "message",
+      "ts": "1704067320.000000",
+      "channel": "C123456",
+      "text": "AUTH-456 is deployed now",
+      "user": "U789012"
+    }
+  ],
+  "mentionMessages": [
+    {
+      "type": "message",
+      "ts": "1704067200.000000",
+      "channel": "C123456",
+      "text": "<@U123456> can you review this PR?",
+      "user": "U789012"
+    },
+    {
+      "type": "message",
+      "ts": "1704067260.000000",
+      "channel": "C123456",
+      "text": "Sure, looking at it now",
+      "user": "U123456"
+    }
+  ]
+}

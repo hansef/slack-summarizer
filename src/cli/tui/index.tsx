@@ -4,7 +4,7 @@
 
 import { render } from 'ink';
 import { App } from './App.js';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@/utils/logger.js';
 
 /**
  * Launch the TUI application

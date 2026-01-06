@@ -6,7 +6,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { DateTime } from 'luxon';
 
 // Mock the env module before importing calendar utilities
-vi.mock('../../../../../src/utils/env.js', () => ({
+vi.mock('@/utils/env.js', () => ({
   getEnv: () => ({
     SLACK_SUMMARIZER_TIMEZONE: 'America/Los_Angeles',
     ANTHROPIC_API_KEY: 'test-key',
@@ -27,7 +27,7 @@ import {
   getWeekYear,
   isWeekend,
   isInVisibleRange,
-} from '../../../../../src/cli/tui/utils/calendar.js';
+} from '@/cli/tui/utils/calendar.js';
 
 describe('calendar utilities', () => {
   describe('isWeekend', () => {

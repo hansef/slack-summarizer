@@ -19,7 +19,12 @@
     "noFallthroughCasesInSwitch": true,
     "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@tests/*": ["tests/*"]
+    }
   },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"]

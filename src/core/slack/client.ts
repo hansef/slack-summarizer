@@ -1,6 +1,6 @@
 import { WebClient } from '@slack/web-api';
-import { getEnv } from '../../utils/env.js';
-import { logger } from '../../utils/logger.js';
+import { getEnv } from '@/utils/env.js';
+import { logger } from '@/utils/logger.js';
 import { getRateLimiter, RateLimiter } from './rate-limiter.js';
 import {
   SlackChannel,
@@ -10,10 +10,10 @@ import {
   SlackUser,
   AuthTestResponse,
   AuthTestResponseSchema,
-} from '../models/slack.js';
-export type { SlackUser } from '../models/slack.js';
-import type { DateRange } from '../../utils/dates.js';
-import { toSlackTimestamp } from '../../utils/dates.js';
+} from '@/core/models/slack.js';
+export type { SlackUser } from '@/core/models/slack.js';
+import type { DateRange } from '@/utils/dates.js';
+import { toSlackTimestamp } from '@/utils/dates.js';
 
 export interface SlackClientConfig {
   token?: string;

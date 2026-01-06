@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { RateLimiter, resetRateLimiter } from '../../../../src/core/slack/rate-limiter.js';
+import { RateLimiter, resetRateLimiter } from '@/core/slack/rate-limiter.js';
 
 describe('RateLimiter', () => {
   beforeEach(() => {
@@ -25,13 +25,13 @@ describe('RateLimiter', () => {
       const startTime = Date.now();
 
       // Queue multiple requests
-      const p1 = limiter.execute(async () => {
+      const p1 = limiter.execute(() => {
         results.push(Date.now() - startTime);
-        return 1;
+        return Promise.resolve(1);
       });
-      const p2 = limiter.execute(async () => {
+      const p2 = limiter.execute(() => {
         results.push(Date.now() - startTime);
-        return 2;
+        return Promise.resolve(2);
       });
 
       // First request should execute immediately
@@ -56,12 +56,12 @@ describe('RateLimiter', () => {
 
       let attempts = 0;
       const result = await vi.waitFor(async () => {
-        const promise = limiter.execute(async () => {
+        const promise = limiter.execute(() => {
           attempts++;
           if (attempts < 2) {
-            throw new Error('ECONNRESET');
+            return Promise.reject(new Error('ECONNRESET'));
           }
-          return 'success';
+          return Promise.resolve('success');
         });
 
         // Advance timers to allow retry
@@ -86,9 +86,9 @@ describe('RateLimiter', () => {
       let attempts = 0;
 
       await expect(
-        limiter.execute(async () => {
+        limiter.execute(() => {
           attempts++;
-          throw new Error('ECONNRESET');
+          return Promise.reject(new Error('ECONNRESET'));
         })
       ).rejects.toThrow('ECONNRESET');
 
@@ -100,13 +100,12 @@ describe('RateLimiter', () => {
       const limiter = new RateLimiter({ requestsPerSecond: 10 });
 
       let attempts = 0;
-      const promise = limiter.execute(async () => {
+      const promise = limiter.execute(() => {
         attempts++;
         if (attempts === 1) {
-          const error = new Error('ratelimited');
-          throw error;
+          return Promise.reject(new Error('ratelimited'));
         }
-        return 'success';
+        return Promise.resolve('success');
       });
 
       // Should wait 60 seconds (default retry-after for ratelimited)
@@ -123,8 +122,8 @@ describe('RateLimiter', () => {
       const limiter = new RateLimiter({ requestsPerSecond: 0.1 }); // Very slow
 
       // Queue some requests but don't await them
-      limiter.execute(() => Promise.resolve(1));
-      limiter.execute(() => Promise.resolve(2));
+      void limiter.execute(() => Promise.resolve(1));
+      void limiter.execute(() => Promise.resolve(2));
 
       // First one starts processing immediately, so queue has 1 pending
       expect(limiter.getQueueLength()).toBeGreaterThanOrEqual(1);

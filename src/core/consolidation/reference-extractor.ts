@@ -1,5 +1,5 @@
-import { Conversation } from '../models/conversation.js';
-import { SlackMessage } from '../models/slack.js';
+import { Conversation } from '@/core/models/conversation.js';
+import { SlackMessage } from '@/core/models/slack.js';
 
 /**
  * All supported reference types

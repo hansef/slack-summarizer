@@ -1,6 +1,6 @@
-import { SlackMessage } from '../models/slack.js';
-import { Conversation } from '../models/conversation.js';
-import { fromSlackTimestamp, formatISO, getMinutesBetween } from '../../utils/dates.js';
+import { SlackMessage } from '@/core/models/slack.js';
+import { Conversation } from '@/core/models/conversation.js';
+import { fromSlackTimestamp, formatISO, getMinutesBetween } from '@/utils/dates.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface TimeSegmentationConfig {

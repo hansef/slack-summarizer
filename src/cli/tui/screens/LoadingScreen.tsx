@@ -6,7 +6,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { Spinner } from '@inkjs/ui';
 import type { SummaryProgress } from '../hooks/useSummary.js';
-import type { DateRange } from '../../../utils/dates.js';
+import type { DateRange } from '@/utils/dates.js';
 
 interface LoadingScreenProps {
   dateRange: DateRange;

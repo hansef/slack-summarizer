@@ -1,5 +1,5 @@
-import { logger } from '../../utils/logger.js';
-import { getEnv } from '../../utils/env.js';
+import { logger } from '@/utils/logger.js';
+import { getEnv } from '@/utils/env.js';
 
 interface RateLimiterConfig {
   requestsPerSecond: number;

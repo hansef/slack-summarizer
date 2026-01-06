@@ -3,8 +3,8 @@
  */
 
 import type { DateTime } from 'luxon';
-import type { SummaryOutput } from '../../core/models/summary.js';
-import type { DateRange } from '../../utils/dates.js';
+import type { SummaryOutput } from '@/core/models/summary.js';
+import type { DateRange } from '@/utils/dates.js';
 
 export type Screen =
   | 'setup'

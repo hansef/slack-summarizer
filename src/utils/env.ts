@@ -14,7 +14,7 @@ import {
   type Config,
   type LogLevel,
   type ClaudeModel,
-} from '../config/index.js';
+} from '@/config/index.js';
 
 // Re-export types for backward compatibility
 export type { Config, LogLevel, ClaudeModel };

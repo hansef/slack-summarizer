@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getEnv, validateEnv, resetEnvCache } from '../../../src/utils/env.js';
-import { getDefaultDbPath } from '../../../src/config/index.js';
+import { getEnv, validateEnv, resetEnvCache } from '@/utils/env.js';
+import { getDefaultDbPath } from '@/config/index.js';
 
 describe('env', () => {
   // Save original env for restoration

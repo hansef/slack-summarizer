@@ -1,0 +1,533 @@
+{
+  "basicGroup": {
+    "description": "Simple conversation group with regular messages",
+    "group": {
+      "id": "group-basic",
+      "conversations": [
+        {
+          "id": "conv-1",
+          "channelId": "C123456",
+          "channelName": "engineering",
+          "isThread": false,
+          "messages": [
+            {
+              "type": "message",
+              "ts": "1704067200.000000",
+              "channel": "C123456",
+              "text": "Hey team, the deploy pipeline is failing",
+              "user": "U111111"
+            },
+            {
+              "type": "message",
+              "ts": "1704067260.000000",
+              "channel": "C123456",
+              "text": "Let me take a look at it",
+              "user": "U222222"
+            },
+            {
+              "type": "message",
+              "ts": "1704067320.000000",
+              "channel": "C123456",
+              "text": "Found the issue - there's a typo in the config file",
+              "user": "U222222"
+            }
+          ],
+          "startTime": "2024-01-01T10:00:00Z",
+          "endTime": "2024-01-01T10:02:00Z",
+          "participants": ["U111111", "U222222"],
+          "messageCount": 3,
+          "userMessageCount": 2
+        }
+      ],
+      "sharedReferences": [],
+      "allMessages": [
+        {
+          "type": "message",
+          "ts": "1704067200.000000",
+          "channel": "C123456",
+          "text": "Hey team, the deploy pipeline is failing",
+          "user": "U111111"
+        },
+        {
+          "type": "message",
+          "ts": "1704067260.000000",
+          "channel": "C123456",
+          "text": "Let me take a look at it",
+          "user": "U222222"
+        },
+        {
+          "type": "message",
+          "ts": "1704067320.000000",
+          "channel": "C123456",
+          "text": "Found the issue - there's a typo in the config file",
+          "user": "U222222"
+        }
+      ],
+      "startTime": "2024-01-01T10:00:00Z",
+      "endTime": "2024-01-01T10:02:00Z",
+      "participants": ["U111111", "U222222"],
+      "totalMessageCount": 3,
+      "totalUserMessageCount": 2,
+      "hasThreads": false,
+      "originalConversationIds": ["conv-1"]
+    },
+    "userDisplayNames": {
+      "U111111": "Alice",
+      "U222222": "Bob"
+    }
+  },
+  "groupWithContextMessages": {
+    "description": "Conversation group with PRIOR CONTEXT and CONTEXT messages",
+    "group": {
+      "id": "group-context",
+      "conversations": [
+        {
+          "id": "conv-1",
+          "channelId": "C123456",
+          "channelName": "support",
+          "isThread": false,
+          "messages": [
+            {
+              "type": "message",
+              "subtype": "mention_context",
+              "ts": "1704063600.000000",
+              "channel": "C123456",
+              "text": "We're seeing errors in production with the OAuth flow",
+              "user": "U111111"
+            },
+            {
+              "type": "message",
+              "subtype": "mention_context",
+              "ts": "1704063660.000000",
+              "channel": "C123456",
+              "text": "Users are getting 401 errors when trying to login",
+              "user": "U111111"
+            },
+            {
+              "type": "message",
+              "ts": "1704067200.000000",
+              "channel": "C123456",
+              "text": "<@U222222> can you help with this OAuth issue?",
+              "user": "U111111"
+            },
+            {
+              "type": "message",
+              "ts": "1704067260.000000",
+              "channel": "C123456",
+              "text": "Sure, I'll check the token refresh logic",
+              "user": "U222222"
+            },
+            {
+              "type": "message",
+              "ts": "1704067320.000000",
+              "channel": "C123456",
+              "text": "Found it - the token expiry check was off by a timezone",
+              "user": "U222222"
+            }
+          ],
+          "startTime": "2024-01-01T09:00:00Z",
+          "endTime": "2024-01-01T10:02:00Z",
+          "participants": ["U111111", "U222222"],
+          "messageCount": 5,
+          "userMessageCount": 3
+        }
+      ],
+      "sharedReferences": [],
+      "allMessages": [
+        {
+          "type": "message",
+          "subtype": "mention_context",
+          "ts": "1704063600.000000",
+          "channel": "C123456",
+          "text": "We're seeing errors in production with the OAuth flow",
+          "user": "U111111"
+        },
+        {
+          "type": "message",
+          "subtype": "mention_context",
+          "ts": "1704063660.000000",
+          "channel": "C123456",
+          "text": "Users are getting 401 errors when trying to login",
+          "user": "U111111"
+        },
+        {
+          "type": "message",
+          "ts": "1704067200.000000",
+          "channel": "C123456",
+          "text": "<@U222222> can you help with this OAuth issue?",
+          "user": "U111111"
+        },
+        {
+          "type": "message",
+          "ts": "1704067260.000000",
+          "channel": "C123456",
+          "text": "Sure, I'll check the token refresh logic",
+          "user": "U222222"
+        },
+        {
+          "type": "message",
+          "ts": "1704067320.000000",
+          "channel": "C123456",
+          "text": "Found it - the token expiry check was off by a timezone",
+          "user": "U222222"
+        }
+      ],
+      "startTime": "2024-01-01T09:00:00Z",
+      "endTime": "2024-01-01T10:02:00Z",
+      "participants": ["U111111", "U222222"],
+      "totalMessageCount": 5,
+      "totalUserMessageCount": 3,
+      "hasThreads": false,
+      "originalConversationIds": ["conv-1"]
+    },
+    "userDisplayNames": {
+      "U111111": "Chris",
+      "U222222": "Dana"
+    }
+  },
+  "groupWithAttachments": {
+    "description": "Conversation group with message attachments (shared messages, unfurls)",
+    "group": {
+      "id": "group-attachments",
+      "conversations": [
+        {
+          "id": "conv-1",
+          "channelId": "C123456",
+          "channelName": "design",
+          "isThread": false,
+          "messages": [
+            {
+              "type": "message",
+              "ts": "1704067200.000000",
+              "channel": "C123456",
+              "text": "Check out this design mockup",
+              "user": "U111111",
+              "attachments": [
+                {
+                  "title": "New Dashboard Design",
+                  "text": "Here's the updated dashboard with the new metrics panel",
+                  "from_url": "https://figma.com/file/abc123"
+                }
+              ]
+            },
+            {
+              "type": "message",
+              "ts": "1704067260.000000",
+              "channel": "C123456",
+              "text": "Looks great! Here's what I mentioned earlier",
+              "user": "U222222",
+              "attachments": [
+                {
+                  "author_name": "Elena",
+                  "author_id": "U333333",
+                  "channel_name": "product",
+                  "text": "We should prioritize the metrics that users asked for in the survey"
+                }
+              ]
+            }
+          ],
+          "startTime": "2024-01-01T10:00:00Z",
+          "endTime": "2024-01-01T10:01:00Z",
+          "participants": ["U111111", "U222222"],
+          "messageCount": 2,
+          "userMessageCount": 2
+        }
+      ],
+      "sharedReferences": [],
+      "allMessages": [
+        {
+          "type": "message",
+          "ts": "1704067200.000000",
+          "channel": "C123456",
+          "text": "Check out this design mockup",
+          "user": "U111111",
+          "attachments": [
+            {
+              "title": "New Dashboard Design",
+              "text": "Here's the updated dashboard with the new metrics panel",
+              "from_url": "https://figma.com/file/abc123"
+            }
+          ]
+        },
+        {
+          "type": "message",
+          "ts": "1704067260.000000",
+          "channel": "C123456",
+          "text": "Looks great! Here's what I mentioned earlier",
+          "user": "U222222",
+          "attachments": [
+            {
+              "author_name": "Elena",
+              "author_id": "U333333",
+              "channel_name": "product",
+              "text": "We should prioritize the metrics that users asked for in the survey"
+            }
+          ]
+        }
+      ],
+      "startTime": "2024-01-01T10:00:00Z",
+      "endTime": "2024-01-01T10:01:00Z",
+      "participants": ["U111111", "U222222"],
+      "totalMessageCount": 2,
+      "totalUserMessageCount": 2,
+      "hasThreads": false,
+      "originalConversationIds": ["conv-1"]
+    },
+    "userDisplayNames": {
+      "U111111": "Frank",
+      "U222222": "Grace",
+      "U333333": "Elena"
+    }
+  },
+  "groupWithBotMessages": {
+    "description": "Conversation group with bot messages from CI/CD",
+    "group": {
+      "id": "group-bots",
+      "conversations": [
+        {
+          "id": "conv-1",
+          "channelId": "C123456",
+          "channelName": "deployments",
+          "isThread": false,
+          "messages": [
+            {
+              "type": "message",
+              "ts": "1704067200.000000",
+              "channel": "C123456",
+              "text": "Deploying v2.5.0 to production",
+              "user": "U111111"
+            },
+            {
+              "type": "message",
+              "subtype": "bot_message",
+              "ts": "1704067260.000000",
+              "channel": "C123456",
+              "text": "[CircleCI] Build #456 started for main branch"
+            },
+            {
+              "type": "message",
+              "subtype": "bot_message",
+              "ts": "1704067500.000000",
+              "channel": "C123456",
+              "text": "[CircleCI] Build #456 passed - all 127 tests green"
+            },
+            {
+              "type": "message",
+              "ts": "1704067560.000000",
+              "channel": "C123456",
+              "text": "Build looks good, proceeding with deploy",
+              "user": "U111111"
+            }
+          ],
+          "startTime": "2024-01-01T10:00:00Z",
+          "endTime": "2024-01-01T10:06:00Z",
+          "participants": ["U111111"],
+          "messageCount": 4,
+          "userMessageCount": 2
+        }
+      ],
+      "sharedReferences": ["#456"],
+      "allMessages": [
+        {
+          "type": "message",
+          "ts": "1704067200.000000",
+          "channel": "C123456",
+          "text": "Deploying v2.5.0 to production",
+          "user": "U111111"
+        },
+        {
+          "type": "message",
+          "subtype": "bot_message",
+          "ts": "1704067260.000000",
+          "channel": "C123456",
+          "text": "[CircleCI] Build #456 started for main branch"
+        },
+        {
+          "type": "message",
+          "subtype": "bot_message",
+          "ts": "1704067500.000000",
+          "channel": "C123456",
+          "text": "[CircleCI] Build #456 passed - all 127 tests green"
+        },
+        {
+          "type": "message",
+          "ts": "1704067560.000000",
+          "channel": "C123456",
+          "text": "Build looks good, proceeding with deploy",
+          "user": "U111111"
+        }
+      ],
+      "startTime": "2024-01-01T10:00:00Z",
+      "endTime": "2024-01-01T10:06:00Z",
+      "participants": ["U111111"],
+      "totalMessageCount": 4,
+      "totalUserMessageCount": 2,
+      "hasThreads": false,
+      "originalConversationIds": ["conv-1"]
+    },
+    "userDisplayNames": {
+      "U111111": "Henry"
+    }
+  },
+  "groupWithThreads": {
+    "description": "Conversation group that includes thread replies",
+    "group": {
+      "id": "group-threads",
+      "conversations": [
+        {
+          "id": "conv-1",
+          "channelId": "C123456",
+          "channelName": "general",
+          "isThread": true,
+          "threadTs": "1704067200.000000",
+          "messages": [
+            {
+              "type": "message",
+              "ts": "1704067200.000000",
+              "channel": "C123456",
+              "text": "Reminder: team standup at 10am",
+              "user": "U111111",
+              "thread_ts": "1704067200.000000"
+            },
+            {
+              "type": "message",
+              "ts": "1704067260.000000",
+              "channel": "C123456",
+              "text": "I'll be 5 minutes late",
+              "user": "U222222",
+              "thread_ts": "1704067200.000000"
+            },
+            {
+              "type": "message",
+              "ts": "1704067320.000000",
+              "channel": "C123456",
+              "text": "No problem, see you then",
+              "user": "U111111",
+              "thread_ts": "1704067200.000000"
+            }
+          ],
+          "startTime": "2024-01-01T10:00:00Z",
+          "endTime": "2024-01-01T10:02:00Z",
+          "participants": ["U111111", "U222222"],
+          "messageCount": 3,
+          "userMessageCount": 2
+        }
+      ],
+      "sharedReferences": [],
+      "allMessages": [
+        {
+          "type": "message",
+          "ts": "1704067200.000000",
+          "channel": "C123456",
+          "text": "Reminder: team standup at 10am",
+          "user": "U111111",
+          "thread_ts": "1704067200.000000"
+        },
+        {
+          "type": "message",
+          "ts": "1704067260.000000",
+          "channel": "C123456",
+          "text": "I'll be 5 minutes late",
+          "user": "U222222",
+          "thread_ts": "1704067200.000000"
+        },
+        {
+          "type": "message",
+          "ts": "1704067320.000000",
+          "channel": "C123456",
+          "text": "No problem, see you then",
+          "user": "U111111",
+          "thread_ts": "1704067200.000000"
+        }
+      ],
+      "startTime": "2024-01-01T10:00:00Z",
+      "endTime": "2024-01-01T10:02:00Z",
+      "participants": ["U111111", "U222222"],
+      "totalMessageCount": 3,
+      "totalUserMessageCount": 2,
+      "hasThreads": true,
+      "originalConversationIds": ["conv-1"]
+    },
+    "userDisplayNames": {
+      "U111111": "Ivan",
+      "U222222": "Julia"
+    }
+  },
+  "groupWithReferences": {
+    "description": "Conversation group with shared references (issues, PRs)",
+    "group": {
+      "id": "group-refs",
+      "conversations": [
+        {
+          "id": "conv-1",
+          "channelId": "C123456",
+          "channelName": "eng-frontend",
+          "isThread": false,
+          "messages": [
+            {
+              "type": "message",
+              "ts": "1704067200.000000",
+              "channel": "C123456",
+              "text": "Working on PROJ-789 - the login form redesign",
+              "user": "U111111"
+            },
+            {
+              "type": "message",
+              "ts": "1704067260.000000",
+              "channel": "C123456",
+              "text": "The PR is ready for review: https://github.com/org/repo/pull/456",
+              "user": "U111111"
+            },
+            {
+              "type": "message",
+              "ts": "1704067320.000000",
+              "channel": "C123456",
+              "text": "LGTM! Approved PROJ-789",
+              "user": "U222222"
+            }
+          ],
+          "startTime": "2024-01-01T10:00:00Z",
+          "endTime": "2024-01-01T10:02:00Z",
+          "participants": ["U111111", "U222222"],
+          "messageCount": 3,
+          "userMessageCount": 2
+        }
+      ],
+      "sharedReferences": ["PROJ-789", "#456"],
+      "allMessages": [
+        {
+          "type": "message",
+          "ts": "1704067200.000000",
+          "channel": "C123456",
+          "text": "Working on PROJ-789 - the login form redesign",
+          "user": "U111111"
+        },
+        {
+          "type": "message",
+          "ts": "1704067260.000000",
+          "channel": "C123456",
+          "text": "The PR is ready for review: https://github.com/org/repo/pull/456",
+          "user": "U111111"
+        },
+        {
+          "type": "message",
+          "ts": "1704067320.000000",
+          "channel": "C123456",
+          "text": "LGTM! Approved PROJ-789",
+          "user": "U222222"
+        }
+      ],
+      "startTime": "2024-01-01T10:00:00Z",
+      "endTime": "2024-01-01T10:02:00Z",
+      "participants": ["U111111", "U222222"],
+      "totalMessageCount": 3,
+      "totalUserMessageCount": 2,
+      "hasThreads": false,
+      "originalConversationIds": ["conv-1"]
+    },
+    "userDisplayNames": {
+      "U111111": "Kate",
+      "U222222": "Leo"
+    }
+  }
+}

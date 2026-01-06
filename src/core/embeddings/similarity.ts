@@ -1,9 +1,9 @@
 import { createHash } from 'crypto';
-import { Conversation } from '../models/conversation.js';
+import { Conversation } from '@/core/models/conversation.js';
 import {
   ConversationReferences,
   calculateReferenceSimilarity,
-} from '../consolidation/reference-extractor.js';
+} from '@/core/consolidation/reference-extractor.js';
 import { getEmbeddingClient } from './client.js';
 import {
   getCachedEmbedding,
@@ -12,7 +12,7 @@ import {
   setCachedEmbeddingsBatch,
   CachedEmbedding,
 } from './cache.js';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@/utils/logger.js';
 
 export interface SimilarityConfig {
   /** Weight for reference-based similarity (0-1), default 0.6 */

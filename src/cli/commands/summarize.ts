@@ -1,8 +1,8 @@
 import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DateTime } from 'luxon';
-import { createSummaryAggregator } from '../../core/summarization/aggregator.js';
-import { logger } from '../../utils/logger.js';
+import { createSummaryAggregator } from '@/core/summarization/aggregator.js';
+import { logger } from '@/utils/logger.js';
 import { output } from '../output.js';
 import { formatSummaryAsMarkdown } from '../formatters/markdown.js';
 

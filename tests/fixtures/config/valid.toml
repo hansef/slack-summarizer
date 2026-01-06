@@ -1,0 +1,28 @@
+# Valid configuration file for testing
+
+[slack]
+user_token = "xoxp-test-token-12345"
+rate_limit = 15
+concurrency = 8
+
+[anthropic]
+api_key = "sk-ant-api-test-key-12345"
+model = "claude-haiku-4-5-20251001"
+concurrency = 15
+
+[database]
+path = "/tmp/test-cache.db"
+
+[logging]
+level = "debug"
+
+[performance]
+channel_concurrency = 5
+
+[settings]
+timezone = "America/New_York"
+
+[embeddings]
+enabled = false
+reference_weight = 0.7
+embedding_weight = 0.3

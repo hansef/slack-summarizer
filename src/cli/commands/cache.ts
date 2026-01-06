@@ -1,8 +1,8 @@
 import { existsSync, unlinkSync, statSync } from 'node:fs';
-import { getEnv } from '../../utils/env.js';
-import { getDatabase } from '../../core/cache/db.js';
+import { getEnv } from '@/utils/env.js';
+import { getDatabase } from '@/core/cache/db.js';
 import { output } from '../output.js';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@/utils/logger.js';
 
 interface CacheOptions {
   clear?: boolean;

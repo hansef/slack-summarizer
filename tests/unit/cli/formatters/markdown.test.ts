@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { formatSummaryAsMarkdown } from '../../../../src/cli/formatters/markdown.js';
-import type { SummaryOutput } from '../../../../src/core/models/summary.js';
+import { formatSummaryAsMarkdown } from '@/cli/formatters/markdown.js';
+import type { SummaryOutput } from '@/core/models/summary.js';
 
 describe('Markdown Formatter', () => {
   const baseSummary: SummaryOutput = {

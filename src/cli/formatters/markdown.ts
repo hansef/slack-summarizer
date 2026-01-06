@@ -8,7 +8,7 @@ import type {
   SummaryOutput,
   ChannelSummary,
   ConversationSummary,
-} from '../../core/models/summary.js';
+} from '@/core/models/summary.js';
 
 /**
  * Channel type display formatting

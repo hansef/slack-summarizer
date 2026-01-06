@@ -8,11 +8,11 @@ import {
   ReadResourceRequestSchema,
   type CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
-import { logger } from '../utils/logger.js';
+import { logger } from '@/utils/logger.js';
 import { getHighLevelTools, handleHighLevelTool } from './tools/high-level.js';
 import { getPrimitiveTools, handlePrimitiveTool } from './tools/primitives.js';
 import { getResources, handleResourceRead } from './resources.js';
-import { registerCleanupHandlers } from '../core/cache/db.js';
+import { registerCleanupHandlers } from '@/core/cache/db.js';
 
 // Register cleanup handlers for graceful database shutdown
 registerCleanupHandlers();

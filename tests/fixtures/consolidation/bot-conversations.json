@@ -1,0 +1,271 @@
+{
+  "botBeforeHuman": {
+    "description": "Bot conversation immediately before a human conversation - should merge into human",
+    "conversations": [
+      {
+        "id": "bot-1",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "subtype": "bot_message",
+            "ts": "1704067200.000000",
+            "channel": "C123456",
+            "text": "Build #100 started",
+            "user": "B123456"
+          },
+          {
+            "type": "message",
+            "subtype": "bot_message",
+            "ts": "1704067260.000000",
+            "channel": "C123456",
+            "text": "Build #100 passed",
+            "user": "B123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:00:00Z",
+        "endTime": "2024-01-01T10:01:00Z",
+        "participants": ["B123456"],
+        "messageCount": 2,
+        "userMessageCount": 0
+      },
+      {
+        "id": "human-1",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704067320.000000",
+            "channel": "C123456",
+            "text": "Great, deploying now",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:02:00Z",
+        "endTime": "2024-01-01T10:02:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      }
+    ]
+  },
+  "botAfterHuman": {
+    "description": "Bot conversation immediately after a human conversation - should merge into human",
+    "conversations": [
+      {
+        "id": "human-1",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704067200.000000",
+            "channel": "C123456",
+            "text": "Deploying to production",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:00:00Z",
+        "endTime": "2024-01-01T10:00:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      },
+      {
+        "id": "bot-1",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "subtype": "bot_message",
+            "ts": "1704067260.000000",
+            "channel": "C123456",
+            "text": "Deployment started...",
+            "user": "B123456"
+          },
+          {
+            "type": "message",
+            "subtype": "bot_message",
+            "ts": "1704067500.000000",
+            "channel": "C123456",
+            "text": "Deployment complete!",
+            "user": "B123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:01:00Z",
+        "endTime": "2024-01-01T10:05:00Z",
+        "participants": ["B123456"],
+        "messageCount": 2,
+        "userMessageCount": 0
+      }
+    ]
+  },
+  "isolatedBot": {
+    "description": "Bot conversation with no adjacent human conversations - should remain separate",
+    "conversations": [
+      {
+        "id": "human-1",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704060000.000000",
+            "channel": "C123456",
+            "text": "Morning everyone",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T08:00:00Z",
+        "endTime": "2024-01-01T08:00:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      },
+      {
+        "id": "bot-1",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "subtype": "bot_message",
+            "ts": "1704067200.000000",
+            "channel": "C123456",
+            "text": "Scheduled backup complete",
+            "user": "B123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:00:00Z",
+        "endTime": "2024-01-01T10:00:00Z",
+        "participants": ["B123456"],
+        "messageCount": 1,
+        "userMessageCount": 0
+      },
+      {
+        "id": "human-2",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704078000.000000",
+            "channel": "C123456",
+            "text": "End of day update",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T13:00:00Z",
+        "endTime": "2024-01-01T13:00:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      }
+    ]
+  },
+  "multipleBots": {
+    "description": "Multiple bot conversations between human ones",
+    "conversations": [
+      {
+        "id": "human-1",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704067200.000000",
+            "channel": "C123456",
+            "text": "Merging PR #123",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:00:00Z",
+        "endTime": "2024-01-01T10:00:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      },
+      {
+        "id": "bot-github",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "subtype": "bot_message",
+            "ts": "1704067260.000000",
+            "channel": "C123456",
+            "text": "PR #123 merged",
+            "user": "B111111"
+          }
+        ],
+        "startTime": "2024-01-01T10:01:00Z",
+        "endTime": "2024-01-01T10:01:00Z",
+        "participants": ["B111111"],
+        "messageCount": 1,
+        "userMessageCount": 0
+      },
+      {
+        "id": "bot-ci",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "subtype": "bot_message",
+            "ts": "1704067320.000000",
+            "channel": "C123456",
+            "text": "Build triggered for main branch",
+            "user": "B222222"
+          },
+          {
+            "type": "message",
+            "subtype": "bot_message",
+            "ts": "1704067500.000000",
+            "channel": "C123456",
+            "text": "Build passed",
+            "user": "B222222"
+          }
+        ],
+        "startTime": "2024-01-01T10:02:00Z",
+        "endTime": "2024-01-01T10:05:00Z",
+        "participants": ["B222222"],
+        "messageCount": 2,
+        "userMessageCount": 0
+      },
+      {
+        "id": "human-2",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704067560.000000",
+            "channel": "C123456",
+            "text": "All green, deploying",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:06:00Z",
+        "endTime": "2024-01-01T10:06:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      }
+    ]
+  }
+}

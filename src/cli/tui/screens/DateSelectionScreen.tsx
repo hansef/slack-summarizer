@@ -13,8 +13,8 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { Select } from '@inkjs/ui';
 import { DateTime } from 'luxon';
-import { parseTimespan, type DateRange } from '../../../utils/dates.js';
-import { getEnv } from '../../../utils/env.js';
+import { parseTimespan, type DateRange } from '@/utils/dates.js';
+import { getEnv } from '@/utils/env.js';
 import type { CalendarState } from '../types.js';
 import {
   buildTwoMonthGrids,

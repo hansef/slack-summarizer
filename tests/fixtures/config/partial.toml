@@ -1,0 +1,5 @@
+# Partial configuration - only required fields
+# Other sections omitted - will use defaults or env vars
+
+[slack]
+user_token = "xoxp-test-token-partial"

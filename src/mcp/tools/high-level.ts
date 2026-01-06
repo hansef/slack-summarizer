@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { createSummaryAggregator } from '../../core/summarization/aggregator.js';
-import { logger } from '../../utils/logger.js';
-import { formatSummaryAsMarkdown } from '../../cli/formatters/markdown.js';
-import type { SummaryOutput, ChannelSummary, ConversationSummary } from '../../core/models/summary.js';
+import { createSummaryAggregator } from '@/core/summarization/aggregator.js';
+import { logger } from '@/utils/logger.js';
+import { formatSummaryAsMarkdown } from '@/cli/formatters/markdown.js';
+import type { SummaryOutput, ChannelSummary, ConversationSummary } from '@/core/models/summary.js';
 import type { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 
 // Input schema for slack_get_user_summary

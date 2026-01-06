@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { segmentByTimeGaps, countTimeGapSplits } from '../../../../src/core/segmentation/time-based.js';
-import { SlackMessage } from '../../../../src/core/models/slack.js';
-import { resetEnvCache } from '../../../../src/utils/env.js';
+import { segmentByTimeGaps, countTimeGapSplits } from '@/core/segmentation/time-based.js';
+import { SlackMessage } from '@/core/models/slack.js';
+import { resetEnvCache } from '@/utils/env.js';
 
 describe('Time-based Segmentation', () => {
   beforeEach(() => {

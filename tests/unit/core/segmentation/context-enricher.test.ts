@@ -5,9 +5,9 @@ import {
   isContextMessage,
   CONTEXT_SUBTYPES,
   DEFAULT_ENRICHMENT_CONFIG,
-} from '../../../../src/core/segmentation/context-enricher.js';
-import { Conversation } from '../../../../src/core/models/conversation.js';
-import { SlackMessage } from '../../../../src/core/models/slack.js';
+} from '@/core/segmentation/context-enricher.js';
+import { Conversation } from '@/core/models/conversation.js';
+import { SlackMessage } from '@/core/models/slack.js';
 
 // Helper to create mock messages
 function createMessage(overrides: Partial<SlackMessage> = {}): SlackMessage {

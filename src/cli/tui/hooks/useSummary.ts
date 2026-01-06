@@ -3,9 +3,9 @@
  */
 
 import { useState, useCallback } from 'react';
-import { createSummaryAggregator, type ProgressEvent } from '../../../core/summarization/aggregator.js';
-import type { SummaryOutput } from '../../../core/models/summary.js';
-import type { DateRange } from '../../../utils/dates.js';
+import { createSummaryAggregator, type ProgressEvent } from '@/core/summarization/aggregator.js';
+import type { SummaryOutput } from '@/core/models/summary.js';
+import type { DateRange } from '@/utils/dates.js';
 
 export interface SummaryProgress {
   stage: ProgressEvent['stage'];

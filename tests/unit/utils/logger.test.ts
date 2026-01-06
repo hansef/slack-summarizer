@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
-import { logger } from '../../../src/utils/logger.js';
-import { resetEnvCache } from '../../../src/utils/env.js';
+import { logger } from '@/utils/logger.js';
+import { resetEnvCache } from '@/utils/env.js';
 
 describe('logger', () => {
   const originalEnv = process.env;
@@ -34,8 +34,9 @@ describe('logger', () => {
       logger.info('test message');
 
       expect(consoleSpy).toHaveBeenCalledTimes(1);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const logOutput = consoleSpy.mock.calls[0][0] as string;
-      const parsed = JSON.parse(logOutput);
+      const parsed = JSON.parse(logOutput) as { level: string; message: string };
       expect(parsed.level).toBe('info');
       expect(parsed.message).toBe('test message');
     });
@@ -65,8 +66,9 @@ describe('logger', () => {
       logger.warn('warning message');
 
       expect(consoleSpy).toHaveBeenCalledTimes(1);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const logOutput = consoleSpy.mock.calls[0][0] as string;
-      const parsed = JSON.parse(logOutput);
+      const parsed = JSON.parse(logOutput) as { level: string };
       expect(parsed.level).toBe('warn');
     });
 
@@ -77,8 +79,9 @@ describe('logger', () => {
       logger.error('error message');
 
       expect(errorSpy).toHaveBeenCalledTimes(1);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const logOutput = errorSpy.mock.calls[0][0] as string;
-      const parsed = JSON.parse(logOutput);
+      const parsed = JSON.parse(logOutput) as { level: string };
       expect(parsed.level).toBe('error');
     });
 
@@ -103,8 +106,9 @@ describe('logger', () => {
 
       logger.info('test message', { key: 'value', count: 42 });
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const logOutput = consoleSpy.mock.calls[0][0] as string;
-      const parsed = JSON.parse(logOutput);
+      const parsed = JSON.parse(logOutput) as { context: { key: string; count: number } };
       expect(parsed.context).toEqual({ key: 'value', count: 42 });
     });
 
@@ -114,8 +118,9 @@ describe('logger', () => {
 
       logger.info('test message');
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const logOutput = consoleSpy.mock.calls[0][0] as string;
-      const parsed = JSON.parse(logOutput);
+      const parsed = JSON.parse(logOutput) as { context?: unknown };
       expect(parsed.context).toBeUndefined();
     });
   });
@@ -127,8 +132,9 @@ describe('logger', () => {
 
       logger.info('test message');
 
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const logOutput = consoleSpy.mock.calls[0][0] as string;
-      const parsed = JSON.parse(logOutput);
+      const parsed = JSON.parse(logOutput) as { timestamp: string };
       expect(parsed.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     });
   });

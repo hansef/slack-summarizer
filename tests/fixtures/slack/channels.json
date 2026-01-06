@@ -1,0 +1,38 @@
+{
+  "publicChannel": {
+    "id": "C123456",
+    "name": "general",
+    "is_channel": true,
+    "is_private": false,
+    "is_member": true,
+    "num_members": 50
+  },
+  "privateChannel": {
+    "id": "C789012",
+    "name": "team-private",
+    "is_channel": true,
+    "is_private": true,
+    "is_member": true,
+    "num_members": 5
+  },
+  "directMessage": {
+    "id": "D123456",
+    "is_im": true,
+    "is_channel": false,
+    "user": "U789012"
+  },
+  "groupDM": {
+    "id": "G123456",
+    "name": "mpdm-user1--user2--user3-1",
+    "is_mpim": true,
+    "is_channel": false,
+    "members": ["U123456", "U789012", "U345678"]
+  },
+  "archivedChannel": {
+    "id": "C111111",
+    "name": "old-project",
+    "is_channel": true,
+    "is_private": false,
+    "is_archived": true
+  }
+}

@@ -4,8 +4,8 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { Box, useApp } from 'ink';
-import type { DateRange } from '../../utils/dates.js';
-import type { SummaryOutput } from '../../core/models/summary.js';
+import type { DateRange } from '@/utils/dates.js';
+import type { SummaryOutput } from '@/core/models/summary.js';
 import type { Screen } from './types.js';
 import { useConfig } from './hooks/useConfig.js';
 import { useSummary } from './hooks/useSummary.js';

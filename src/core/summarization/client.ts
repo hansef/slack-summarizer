@@ -1,15 +1,15 @@
-import { getEnv, type ClaudeModel } from '../../utils/env.js';
-import { logger } from '../../utils/logger.js';
-import { ConversationGroup, getGroupSlackLinks } from '../consolidation/consolidator.js';
-import { ConversationSummary } from '../models/summary.js';
-import { SlackClient, getSlackClient } from '../slack/client.js';
+import { getEnv, type ClaudeModel } from '@/utils/env.js';
+import { logger } from '@/utils/logger.js';
+import { ConversationGroup, getGroupSlackLinks } from '@/core/consolidation/consolidator.js';
+import { ConversationSummary } from '@/core/models/summary.js';
+import { SlackClient, getSlackClient } from '@/core/slack/client.js';
 import {
   buildNarrativeGroupPrompt,
   buildNarrativeBatchPrompt,
   parseNarrativeSummaryResponse,
   parseNarrativeBatchResponse,
 } from './prompts.js';
-import { getClaudeProvider, type ClaudeBackend } from '../llm/index.js';
+import { getClaudeProvider, type ClaudeBackend } from '@/core/llm/index.js';
 
 export interface SummarizationClientConfig {
   apiKey?: string;

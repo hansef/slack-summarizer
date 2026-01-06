@@ -1,0 +1,213 @@
+{
+  "sharedGitHubIssue": {
+    "description": "Two conversations sharing a GitHub issue reference should be grouped",
+    "conversations": [
+      {
+        "id": "conv-1",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704067200.000000",
+            "channel": "C123456",
+            "text": "Looking into #123, the login bug",
+            "user": "U123456"
+          },
+          {
+            "type": "message",
+            "ts": "1704067260.000000",
+            "channel": "C123456",
+            "text": "Found the root cause in auth service",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:00:00Z",
+        "endTime": "2024-01-01T10:01:00Z",
+        "participants": ["U123456"],
+        "messageCount": 2,
+        "userMessageCount": 2
+      },
+      {
+        "id": "conv-2",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704074400.000000",
+            "channel": "C123456",
+            "text": "PR ready for #123, please review",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T12:00:00Z",
+        "endTime": "2024-01-01T12:00:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      }
+    ],
+    "expectedGroups": 1
+  },
+  "transitiveReferences": {
+    "description": "A->B (via #123), B->C (via AUTH-456) should all be in one group",
+    "conversations": [
+      {
+        "id": "A",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704067200.000000",
+            "channel": "C123456",
+            "text": "Working on #123",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:00:00Z",
+        "endTime": "2024-01-01T10:00:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      },
+      {
+        "id": "B",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704070800.000000",
+            "channel": "C123456",
+            "text": "Fixed #123, also found issue in AUTH-456",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T11:00:00Z",
+        "endTime": "2024-01-01T11:00:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      },
+      {
+        "id": "C",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704074400.000000",
+            "channel": "C123456",
+            "text": "AUTH-456 is deployed",
+            "user": "U789012"
+          }
+        ],
+        "startTime": "2024-01-01T12:00:00Z",
+        "endTime": "2024-01-01T12:00:00Z",
+        "participants": ["U789012"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      }
+    ],
+    "expectedGroups": 1
+  },
+  "noSharedReferences": {
+    "description": "Conversations with no shared references should remain separate",
+    "conversations": [
+      {
+        "id": "conv-1",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704067200.000000",
+            "channel": "C123456",
+            "text": "Working on #123",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:00:00Z",
+        "endTime": "2024-01-01T10:00:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      },
+      {
+        "id": "conv-2",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704074400.000000",
+            "channel": "C123456",
+            "text": "Different topic: AUTH-789",
+            "user": "U789012"
+          }
+        ],
+        "startTime": "2024-01-01T12:00:00Z",
+        "endTime": "2024-01-01T12:00:00Z",
+        "participants": ["U789012"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      }
+    ],
+    "expectedGroups": 2
+  },
+  "jiraReferences": {
+    "description": "Conversations sharing Jira ticket references",
+    "conversations": [
+      {
+        "id": "conv-1",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704067200.000000",
+            "channel": "C123456",
+            "text": "Started PROJ-123",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T10:00:00Z",
+        "endTime": "2024-01-01T10:00:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      },
+      {
+        "id": "conv-2",
+        "channelId": "C123456",
+        "channelName": "general",
+        "isThread": false,
+        "messages": [
+          {
+            "type": "message",
+            "ts": "1704074400.000000",
+            "channel": "C123456",
+            "text": "PROJ-123 is ready for QA",
+            "user": "U123456"
+          }
+        ],
+        "startTime": "2024-01-01T12:00:00Z",
+        "endTime": "2024-01-01T12:00:00Z",
+        "participants": ["U123456"],
+        "messageCount": 1,
+        "userMessageCount": 1
+      }
+    ],
+    "expectedGroups": 1
+  }
+}

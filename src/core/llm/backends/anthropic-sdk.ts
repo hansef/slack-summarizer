@@ -4,7 +4,7 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { logger } from '../../../utils/logger.js';
+import { logger } from '@/utils/logger.js';
 import type { ClaudeBackend, MessageCreateParams, MessageResponse } from '../types.js';
 
 export interface AnthropicSdkConfig {

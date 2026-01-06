@@ -1,12 +1,12 @@
-import { SlackMessage, SlackThread } from '../models/slack.js';
-import { Conversation, SegmentationResult } from '../models/conversation.js';
+import { SlackMessage, SlackThread } from '@/core/models/slack.js';
+import { Conversation, SegmentationResult } from '@/core/models/conversation.js';
 import { segmentByTimeGaps, countTimeGapSplits } from './time-based.js';
 import { analyzeConversationBoundaries, applyBoundaryDecisions } from './semantic.js';
 import { enrichConversations, ContextEnrichmentConfig, DEFAULT_ENRICHMENT_CONFIG } from './context-enricher.js';
-import { fromSlackTimestamp, formatISO } from '../../utils/dates.js';
-import { logger } from '../../utils/logger.js';
-import { getEnv } from '../../utils/env.js';
-import { mapWithGlobalClaudeLimiter } from '../../utils/concurrency.js';
+import { fromSlackTimestamp, formatISO } from '@/utils/dates.js';
+import { logger } from '@/utils/logger.js';
+import { getEnv } from '@/utils/env.js';
+import { mapWithGlobalClaudeLimiter } from '@/utils/concurrency.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface HybridSegmentationConfig {

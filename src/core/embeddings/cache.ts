@@ -1,5 +1,5 @@
-import { getDatabase } from '../cache/db.js';
-import { logger } from '../../utils/logger.js';
+import { getDatabase } from '@/core/cache/db.js';
+import { logger } from '@/utils/logger.js';
 
 export interface CachedEmbedding {
   conversationId: string;

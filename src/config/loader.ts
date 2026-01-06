@@ -9,7 +9,7 @@ import {
   type ConfigFile,
 } from './schema.js';
 import { configFileExists, getConfigFilePath, getDisplayPath, getDefaultDbPath } from './paths.js';
-import { logger } from '../utils/logger.js';
+import { logger } from '@/utils/logger.js';
 
 // Load .env file on module import (same as before)
 loadDotenv();

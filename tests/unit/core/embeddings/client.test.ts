@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { EmbeddingClient, resetEmbeddingClient } from '../../../../src/core/embeddings/client.js';
+import { EmbeddingClient, resetEmbeddingClient } from '@/core/embeddings/client.js';
 
 // Mock OpenAI
 vi.mock('openai', () => {
@@ -16,7 +16,7 @@ vi.mock('openai', () => {
 });
 
 // Mock environment
-vi.mock('../../../../src/utils/env.js', () => ({
+vi.mock('@/utils/env.js', () => ({
   getEnv: vi.fn(() => ({
     OPENAI_API_KEY: 'sk-test-key',
   })),
@@ -36,7 +36,7 @@ describe('EmbeddingClient', () => {
   describe('constructor', () => {
     it('should throw if no API key is provided', async () => {
       // Override mock to return no API key
-      const { getEnv } = await import('../../../../src/utils/env.js');
+      const { getEnv } = await import('@/utils/env.js');
       vi.mocked(getEnv).mockReturnValueOnce({
         OPENAI_API_KEY: undefined,
       } as ReturnType<typeof getEnv>);

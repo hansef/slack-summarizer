@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { output } from '../../../src/cli/output.js';
+import { output } from '@/cli/output.js';
 
 describe('CLI Output', () => {
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;

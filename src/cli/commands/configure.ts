@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { spawn, execSync } from 'child_process';
 import { WebClient } from '@slack/web-api';
 import { output } from '../output.js';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@/utils/logger.js';
 import {
   configFileExists,
   getConfigFilePath,
@@ -12,7 +12,7 @@ import {
   writeConfigFile,
   createFullConfig,
   type ConfigFile,
-} from '../../config/index.js';
+} from '@/config/index.js';
 
 interface ConfigureOptions {
   reset?: boolean;

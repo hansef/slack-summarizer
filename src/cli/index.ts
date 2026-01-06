@@ -4,7 +4,7 @@ import { summarizeCommand } from './commands/summarize.js';
 import { cacheCommand } from './commands/cache.js';
 import { testConnectionCommand } from './commands/test.js';
 import { configureCommand } from './commands/configure.js';
-import { registerCleanupHandlers } from '../core/cache/db.js';
+import { registerCleanupHandlers } from '@/core/cache/db.js';
 
 // Register cleanup handlers for graceful database shutdown
 registerCleanupHandlers();

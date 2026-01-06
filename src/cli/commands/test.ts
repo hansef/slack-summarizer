@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { getSlackClient } from '../../core/slack/client.js';
-import { getEnv } from '../../utils/env.js';
+import { getSlackClient } from '@/core/slack/client.js';
+import { getEnv } from '@/utils/env.js';
 import { output } from '../output.js';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@/utils/logger.js';
 
 export async function testConnectionCommand(): Promise<void> {
   output.header('Connection Test');

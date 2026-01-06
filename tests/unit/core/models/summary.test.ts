@@ -3,7 +3,7 @@ import {
   SummaryOutputSchema,
   ChannelSummarySchema,
   ConversationSummarySchema,
-} from '../../../../src/core/models/summary.js';
+} from '@/core/models/summary.js';
 
 describe('Summary Models', () => {
   describe('ConversationSummarySchema', () => {

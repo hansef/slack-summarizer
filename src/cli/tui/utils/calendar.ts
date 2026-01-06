@@ -6,8 +6,8 @@
  */
 
 import { DateTime } from 'luxon';
-import type { DateRange } from '../../../utils/dates.js';
-import { getEnv } from '../../../utils/env.js';
+import type { DateRange } from '@/utils/dates.js';
+import { getEnv } from '@/utils/env.js';
 
 /**
  * Represents a single day in the calendar grid
