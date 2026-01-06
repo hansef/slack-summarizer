@@ -6,7 +6,21 @@
  */
 
 import pino, { type Logger as PinoLogger, type LoggerOptions } from 'pino';
+import { createRequire } from 'module';
 import { errorSerializer } from './serializers.js';
+
+/**
+ * Check if pino-pretty is available (it's a dev dependency).
+ */
+function isPinoPrettyAvailable(): boolean {
+  try {
+    const require = createRequire(import.meta.url);
+    require.resolve('pino-pretty');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export type Logger = PinoLogger;
 export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'silent';
@@ -52,8 +66,9 @@ function createPinoInstance(level: LogLevel): PinoLogger {
     },
   };
 
-  if (isTTY) {
-    // Use pino-pretty for human-readable development output
+  // Use pino-pretty for human-readable TTY output, but only if available
+  // (it's a dev dependency, so not present in production)
+  if (isTTY && isPinoPrettyAvailable()) {
     return pino({
       ...baseConfig,
       transport: {
@@ -67,7 +82,7 @@ function createPinoInstance(level: LogLevel): PinoLogger {
     });
   }
 
-  // JSON output for non-TTY (production, piped output)
+  // JSON output for non-TTY or when pino-pretty is not available
   return pino(baseConfig);
 }
 

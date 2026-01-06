@@ -1,6 +1,6 @@
 {
   "name": "slack-summarizer",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Comprehensive Slack activity summarization with CLI and MCP server interfaces",
   "type": "module",
   "main": "dist/index.js",
