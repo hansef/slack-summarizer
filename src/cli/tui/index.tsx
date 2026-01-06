@@ -4,14 +4,14 @@
 
 import { render } from 'ink';
 import { App } from './App.js';
-import { logger } from '@/utils/logger.js';
+import { setSilent } from '@/utils/logging/index.js';
 
 /**
  * Launch the TUI application
  */
 export function launchTUI(): void {
   // Suppress all log output in TUI mode - the TUI handles its own display
-  logger.setSilent(true);
+  setSilent(true);
 
   render(<App />);
 }

@@ -8,7 +8,9 @@
  */
 
 import { execSync } from 'child_process';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'ClaudeProvider' });
 import { getEnv } from '@/utils/env.js';
 import type { ClaudeBackend } from './types.js';
 import { AnthropicSdkBackend } from './backends/anthropic-sdk.js';
@@ -63,9 +65,7 @@ export class ClaudeProvider {
       // Verify claude CLI is available
       if (!this.isClaudeCliAvailable(config.cliPath)) {
         if (apiKey && apiKey.startsWith('sk-ant-')) {
-          logger.warn(
-            'OAuth token found but claude CLI not available, falling back to SDK backend'
-          );
+          logger.warn('OAuth token found but claude CLI not available, falling back to SDK backend');
           return this.createSdkBackend({ ...config, apiKey });
         }
         throw new Error(
@@ -115,7 +115,7 @@ export class ClaudeProvider {
     const cli = cliPath ?? 'claude';
     // Validate CLI path to prevent shell injection
     if (!/^[a-zA-Z0-9_\-/.]+$/.test(cli)) {
-      logger.warn('Invalid CLI path characters, rejecting', { cliPath: cli });
+      logger.warn({ cliPath: cli }, 'Invalid CLI path characters, rejecting');
       return false;
     }
     try {

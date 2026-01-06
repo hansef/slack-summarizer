@@ -2,7 +2,9 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { DateTime } from 'luxon';
 import { createSummaryAggregator } from '@/core/summarization/aggregator.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger, getProgressReporter } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'SummarizeCommand' });
 import { output } from '../output.js';
 import { formatSummaryAsMarkdown } from '../formatters/markdown.js';
 
@@ -52,7 +54,8 @@ export async function summarizeCommand(options: SummarizeOptions): Promise<void>
 
   // Always enable progress mode in batch command - shows single updating ⏳ line
   // This suppresses verbose logs (unless --verbose flag sets level to debug)
-  logger.enableProgressMode();
+  const progress = getProgressReporter();
+  progress.start();
 
   if (!useStdout) {
     output.info('Starting Slack activity summary...');
@@ -78,7 +81,7 @@ export async function summarizeCommand(options: SummarizeOptions): Promise<void>
 
     if (useStdout) {
       // Disable progress mode before writing output
-      logger.disableProgressMode();
+      progress.stop();
       // Write to stdout
       process.stdout.write(content);
       if (!content.endsWith('\n')) {
@@ -122,10 +125,11 @@ export async function summarizeCommand(options: SummarizeOptions): Promise<void>
     }
   } catch (error) {
     // Ensure progress mode is disabled before showing error
-    logger.disableProgressMode();
-    logger.error('Summarization failed', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    progress.stop();
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Summarization failed'
+    );
     output.error(
       'Failed to generate summary',
       error instanceof Error ? error.message : 'Unknown error'

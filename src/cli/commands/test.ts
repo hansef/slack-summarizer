@@ -2,7 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getSlackClient } from '@/core/slack/client.js';
 import { getEnv } from '@/utils/env.js';
 import { output } from '../output.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'TestConnection' });
 
 export async function testConnectionCommand(): Promise<void> {
   output.header('Connection Test');
@@ -32,9 +34,10 @@ export async function testConnectionCommand(): Promise<void> {
     }
   } catch (error) {
     hasErrors = true;
-    logger.error('Slack connection failed', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Slack connection failed'
+    );
     output.error(
       'Slack connection failed',
       error instanceof Error ? error.message : 'Unknown error'
@@ -68,9 +71,10 @@ export async function testConnectionCommand(): Promise<void> {
     output.stat('Output Tokens', response.usage.output_tokens);
   } catch (error) {
     hasErrors = true;
-    logger.error('Claude API connection failed', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Claude API connection failed'
+    );
     output.error(
       'Claude API connection failed',
       error instanceof Error ? error.message : 'Unknown error'

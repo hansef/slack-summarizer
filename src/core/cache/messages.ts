@@ -1,6 +1,8 @@
 import { getDatabase, transaction } from './db.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
 import { SlackMessage, SlackChannel, SlackReactionItem, getChannelType } from '@/core/models/slack.js';
+
+const logger = createLogger({ component: 'MessageCache' });
 import { getDayBucket, now, fromSlackTimestamp, type DateRange } from '@/utils/dates.js';
 
 export interface CachedMessage {
@@ -92,7 +94,7 @@ export function cacheMessages(channelId: string, messages: SlackMessage[]): void
     }
   });
 
-  logger.debug('Cached messages', { channelId, count: messages.length });
+  logger.debug({ channelId, count: messages.length }, 'Cached messages');
 }
 
 // Get messages from cache for a channel and time range
@@ -167,7 +169,7 @@ export function cacheMentions(
     }
   });
 
-  logger.debug('Cached mentions', { mentionedUserId, count: messages.length });
+  logger.debug({ mentionedUserId, count: messages.length }, 'Cached mentions');
 }
 
 // Get cached mentions for a user
@@ -220,7 +222,7 @@ export function cacheReactions(
     }
   });
 
-  logger.debug('Cached reactions', { userId, count: reactions.length });
+  logger.debug({ userId, count: reactions.length }, 'Cached reactions');
 }
 
 // Get cached reactions for a user

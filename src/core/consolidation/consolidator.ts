@@ -10,7 +10,9 @@ import {
   calculateHybridSimilarity,
   ConversationWithEmbedding,
 } from '@/core/embeddings/similarity.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'Consolidator' });
 import { v4 as uuidv4 } from 'uuid';
 
 // ==========================================
@@ -398,12 +400,10 @@ function mergeTrivialConversations(
         if (config.trivial.dropOrphans && !hasWorkIndicators(conv, config)) {
           // Drop this trivial orphan - it's just noise
           trivialsDropped++;
-          logger.debug('Dropping trivial orphan conversation', {
-            id: conv.id,
-            channelId: conv.channelId,
-            messageCount: conv.messageCount,
-            startTime: conv.startTime,
-          });
+          logger.debug(
+            { id: conv.id, channelId: conv.channelId, messageCount: conv.messageCount, startTime: conv.startTime },
+            'Dropping trivial orphan conversation'
+          );
           continue;
         }
         // Keep it - either dropOrphans is false or it has work indicators
@@ -502,7 +502,7 @@ async function groupByReferences(
     const parentId = parent.get(id);
     if (parentId === undefined) {
       // Safety: if ID not found, treat it as its own parent
-      logger.warn('Conversation ID not found in parent map', { id });
+      logger.warn({ id }, 'Conversation ID not found in parent map');
       return id;
     }
     if (parentId !== id) {
@@ -525,14 +525,15 @@ async function groupByReferences(
   if (config.embeddings.enabled) {
     try {
       embeddingMap = await prepareConversationEmbeddings(conversations);
-      logger.debug('Prepared embeddings for conversations', {
-        count: embeddingMap.size,
-        withEmbeddings: [...embeddingMap.values()].filter((e) => e.embedding !== null).length,
-      });
+      logger.debug(
+        { count: embeddingMap.size, withEmbeddings: [...embeddingMap.values()].filter((e) => e.embedding !== null).length },
+        'Prepared embeddings for conversations'
+      );
     } catch (error) {
-      logger.warn('Failed to prepare embeddings, falling back to reference-only', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Failed to prepare embeddings, falling back to reference-only'
+      );
     }
   }
 
@@ -711,10 +712,10 @@ export async function consolidateConversations(
     };
   }
 
-  logger.debug('Starting conversation consolidation', {
-    conversationCount: conversations.length,
-    config: cfg,
-  });
+  logger.debug(
+    { conversationCount: conversations.length, config: cfg },
+    'Starting conversation consolidation'
+  );
 
   // Step 1: Merge bot conversations into adjacent human conversations
   const { merged: afterBotMerge, botsMerged } = mergeBotConversations(conversations, cfg);
@@ -738,7 +739,7 @@ export async function consolidateConversations(
 
     // Skip empty groups (shouldn't happen, but defensive check)
     if (convs.length === 0) {
-      logger.warn('Empty conversation group found', { convIds });
+      logger.warn({ convIds }, 'Empty conversation group found');
       continue;
     }
 
@@ -764,7 +765,7 @@ export async function consolidateConversations(
     referenceGroupsMerged,
   };
 
-  logger.debug('Consolidation complete', stats);
+  logger.debug(stats, 'Consolidation complete');
 
   return { groups, stats };
 }

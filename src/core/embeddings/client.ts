@@ -1,6 +1,8 @@
 import OpenAI from 'openai';
 import { getEnv } from '@/utils/env.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'EmbeddingClient' });
 
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 const MAX_TOKENS = 8000;
@@ -41,10 +43,10 @@ export class EmbeddingClient {
 
       return response.data[0].embedding;
     } catch (error) {
-      logger.error('Embedding generation failed', {
-        error: error instanceof Error ? error.message : String(error),
-        textLength: text.length,
-      });
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error), textLength: text.length },
+        'Embedding generation failed'
+      );
       throw error;
     }
   }
@@ -69,10 +71,10 @@ export class EmbeddingClient {
       // Sort by index to ensure order matches input
       return response.data.sort((a, b) => a.index - b.index).map((d) => d.embedding);
     } catch (error) {
-      logger.error('Batch embedding generation failed', {
-        error: error instanceof Error ? error.message : String(error),
-        batchSize: texts.length,
-      });
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error), batchSize: texts.length },
+        'Batch embedding generation failed'
+      );
       throw error;
     }
   }
@@ -120,10 +122,10 @@ export class EmbeddingClient {
       return text;
     }
 
-    logger.debug('Truncating text for embedding', {
-      originalLength: text.length,
-      truncatedLength: maxChars,
-    });
+    logger.debug(
+      { originalLength: text.length, truncatedLength: maxChars },
+      'Truncating text for embedding'
+    );
 
     return text.substring(0, maxChars);
   }

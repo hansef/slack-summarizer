@@ -9,7 +9,9 @@ import {
   type ConfigFile,
 } from './schema.js';
 import { configFileExists, getConfigFilePath, getDisplayPath, getDefaultDbPath } from './paths.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'ConfigLoader' });
 
 // Load .env file on module import (same as before)
 loadDotenv();
@@ -76,9 +78,10 @@ export function getConfig(): Config {
     }
   } catch (error) {
     // Log warning but don't fail - env vars might be sufficient
-    logger.warn('Failed to load config file', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to load config file'
+    );
   }
 
   // Merge: env vars override file config override computed defaults

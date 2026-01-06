@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { createSummaryAggregator } from '@/core/summarization/aggregator.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'McpHighLevel' });
 import { formatSummaryAsMarkdown } from '@/cli/formatters/markdown.js';
 import type { SummaryOutput, ChannelSummary, ConversationSummary } from '@/core/models/summary.js';
 import type { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -139,13 +141,10 @@ export async function handleHighLevelTool(
 }
 
 async function generateUserSummary(input: GetUserSummaryInput): Promise<SummaryOutput> {
-  logger.info('Generating user summary via MCP', {
-    timespan: input.timespan,
-    userId: input.user_id,
-    model: input.model,
-    format: input.format,
-    outputFormat: input.output_format,
-  });
+  logger.info(
+    { timespan: input.timespan, userId: input.user_id, model: input.model, format: input.format, outputFormat: input.output_format },
+    'Generating user summary via MCP'
+  );
 
   const aggregator = createSummaryAggregator();
   const summary = await aggregator.generateSummary(input.timespan, input.user_id);

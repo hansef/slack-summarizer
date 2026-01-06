@@ -12,7 +12,9 @@ import {
   setCachedEmbeddingsBatch,
   CachedEmbedding,
 } from './cache.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'EmbeddingSimilarity' });
 
 export interface SimilarityConfig {
   /** Weight for reference-based similarity (0-1), default 0.6 */
@@ -141,10 +143,10 @@ export async function prepareConversationEmbeddings(
 
   // Generate embeddings for uncached conversations in batches
   if (needsGeneration.length > 0) {
-    logger.debug('Generating embeddings for conversations', {
-      count: needsGeneration.length,
-      cached: cachedEmbeddings.size,
-    });
+    logger.debug(
+      { count: needsGeneration.length, cached: cachedEmbeddings.size },
+      'Generating embeddings for conversations'
+    );
 
     try {
       const texts = needsGeneration.map((d) => d.text);
@@ -177,10 +179,10 @@ export async function prepareConversationEmbeddings(
       // Batch cache write
       setCachedEmbeddingsBatch(toCache);
     } catch (error) {
-      logger.error('Failed to generate embeddings batch', {
-        error: error instanceof Error ? error.message : String(error),
-        count: needsGeneration.length,
-      });
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error), count: needsGeneration.length },
+        'Failed to generate embeddings batch'
+      );
 
       // Mark all as failed (null embedding)
       for (const { conv, text, textHash } of needsGeneration) {
@@ -231,10 +233,10 @@ export async function getConversationEmbedding(conv: Conversation): Promise<numb
 
     return embedding;
   } catch (error) {
-    logger.error('Failed to generate embedding', {
-      conversationId: conv.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error(
+      { conversationId: conv.id, error: error instanceof Error ? error.message : String(error) },
+      'Failed to generate embedding'
+    );
     return null;
   }
 }
@@ -272,13 +274,10 @@ export function calculateHybridSimilarity(
   const combined =
     config.referenceWeight * refSimilarity + config.embeddingWeight * normalizedEmbSimilarity;
 
-  logger.debug('Hybrid similarity calculated', {
-    conv1: conv1.id.substring(0, 8),
-    conv2: conv2.id.substring(0, 8),
-    refSimilarity: refSimilarity.toFixed(3),
-    embSimilarity: normalizedEmbSimilarity.toFixed(3),
-    combined: combined.toFixed(3),
-  });
+  logger.debug(
+    { conv1: conv1.id.substring(0, 8), conv2: conv2.id.substring(0, 8), refSimilarity: refSimilarity.toFixed(3), embSimilarity: normalizedEmbSimilarity.toFixed(3), combined: combined.toFixed(3) },
+    'Hybrid similarity calculated'
+  );
 
   return combined;
 }

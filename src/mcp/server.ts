@@ -8,7 +8,9 @@ import {
   ReadResourceRequestSchema,
   type CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'McpServer' });
 import { getHighLevelTools, handleHighLevelTool } from './tools/high-level.js';
 import { getPrimitiveTools, handlePrimitiveTool } from './tools/primitives.js';
 import { getResources, handleResourceRead } from './resources.js';
@@ -45,7 +47,7 @@ server.setRequestHandler(ListToolsRequestSchema, () => {
 server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
   const { name, arguments: args } = request.params;
 
-  logger.info('MCP tool call', { tool: name, args });
+  logger.info({ tool: name, args }, 'MCP tool call');
 
   try {
     // Try high-level tools first
@@ -71,10 +73,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToo
       isError: true,
     };
   } catch (error) {
-    logger.error('MCP tool error', {
-      tool: name,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error(
+      { tool: name, error: error instanceof Error ? error.message : String(error) },
+      'MCP tool error'
+    );
 
     return {
       content: [
@@ -101,7 +103,7 @@ server.setRequestHandler(ListResourcesRequestSchema, () => {
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   const { uri } = request.params;
 
-  logger.info('MCP resource read', { uri });
+  logger.info({ uri }, 'MCP resource read');
 
   try {
     const content = await handleResourceRead(uri);
@@ -109,10 +111,10 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
       contents: [content],
     };
   } catch (error) {
-    logger.error('MCP resource error', {
-      uri,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error(
+      { uri, error: error instanceof Error ? error.message : String(error) },
+      'MCP resource error'
+    );
 
     return {
       contents: [
@@ -139,8 +141,9 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  logger.error('MCP server failed to start', {
-    error: error instanceof Error ? error.message : String(error),
-  });
+  logger.error(
+    { error: error instanceof Error ? error.message : String(error) },
+    'MCP server failed to start'
+  );
   process.exit(1);
 });

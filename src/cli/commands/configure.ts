@@ -3,7 +3,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { spawn, execSync } from 'child_process';
 import { WebClient } from '@slack/web-api';
 import { output } from '../output.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'ConfigureCommand' });
 import {
   configFileExists,
   getConfigFilePath,
@@ -224,9 +226,10 @@ export async function configureCommand(options: ConfigureOptions): Promise<void>
       output.success(`Slack connection successful (${userName})`);
       output.stat('User ID', userId);
     } catch (error) {
-      logger.error('Slack connection test failed', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Slack connection test failed'
+      );
       output.error(
         'Slack connection failed',
         error instanceof Error ? error.message : 'Unknown error'
@@ -333,9 +336,10 @@ export async function configureCommand(options: ConfigureOptions): Promise<void>
         await testAnthropicKey(finalAnthropicKey);
         output.success('Anthropic API connection successful');
       } catch (error) {
-        logger.error('Anthropic API connection test failed', {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        logger.error(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Anthropic API connection test failed'
+        );
         output.error(
           'Anthropic API connection failed',
           error instanceof Error ? error.message : 'Unknown error'
@@ -411,9 +415,10 @@ export async function configureCommand(options: ConfigureOptions): Promise<void>
         await testOAuthToken(finalOAuthToken);
         output.success('Claude OAuth connection successful');
       } catch (error) {
-        logger.error('Claude OAuth connection test failed', {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        logger.error(
+          { error: error instanceof Error ? error.message : String(error) },
+          'Claude OAuth connection test failed'
+        );
         output.error(
           'Claude OAuth connection failed',
           error instanceof Error ? error.message : 'Unknown error'
@@ -632,10 +637,10 @@ export async function configureCommand(options: ConfigureOptions): Promise<void>
     output.info('3. View help:');
     output.raw('   slack-summarizer --help');
   } catch (error) {
-    logger.error('Failed to save configuration', {
-      path: displayPath,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error(
+      { path: displayPath, error: error instanceof Error ? error.message : String(error) },
+      'Failed to save configuration'
+    );
     output.error(
       'Failed to save configuration',
       error instanceof Error ? error.message : 'Unknown error'

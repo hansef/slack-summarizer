@@ -4,7 +4,9 @@ import { segmentByTimeGaps, countTimeGapSplits } from './time-based.js';
 import { analyzeConversationBoundaries, applyBoundaryDecisions } from './semantic.js';
 import { enrichConversations, ContextEnrichmentConfig, DEFAULT_ENRICHMENT_CONFIG } from './context-enricher.js';
 import { fromSlackTimestamp, formatISO } from '@/utils/dates.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'HybridSegmentation' });
 import { getEnv } from '@/utils/env.js';
 import { mapWithGlobalClaudeLimiter } from '@/utils/concurrency.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -34,11 +36,10 @@ export async function hybridSegmentation(
 ): Promise<SegmentationResult> {
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
-  logger.debug('Starting hybrid segmentation', {
-    channelId,
-    messageCount: messages.length,
-    threadCount: threads.length,
-  });
+  logger.debug(
+    { channelId, messageCount: messages.length, threadCount: threads.length },
+    'Starting hybrid segmentation'
+  );
 
   // Step 1: Separate threads from main channel messages
   const { mainMessages } = separateThreads(messages);
@@ -128,7 +129,7 @@ export async function hybridSegmentation(
     semanticSplits,
   };
 
-  logger.debug('Hybrid segmentation complete', stats);
+  logger.debug(stats, 'Hybrid segmentation complete');
 
   return {
     conversations: allConversations,

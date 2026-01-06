@@ -1,5 +1,7 @@
 import { getSlackClient } from '@/core/slack/client.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'McpResources' });
 import type { Resource } from '@modelcontextprotocol/sdk/types.js';
 
 export function getResources(): Resource[] {

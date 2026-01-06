@@ -2,7 +2,9 @@ import { existsSync, unlinkSync, statSync } from 'node:fs';
 import { getEnv } from '@/utils/env.js';
 import { getDatabase } from '@/core/cache/db.js';
 import { output } from '../output.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'CacheCommand' });
 
 interface CacheOptions {
   clear?: boolean;
@@ -40,14 +42,15 @@ function clearCache(dbPath: string): void {
     if (existsSync(dbPath)) {
       unlinkSync(dbPath);
       output.success('Cache cleared successfully');
-      logger.info('Cache cleared', { path: dbPath });
+      logger.info({ path: dbPath }, 'Cache cleared');
     } else {
       output.info('No cache file found - nothing to clear');
     }
   } catch (error) {
-    logger.error('Failed to clear cache', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to clear cache'
+    );
     output.error(
       'Failed to clear cache',
       error instanceof Error ? error.message : 'Unknown error'
@@ -116,9 +119,10 @@ function showCacheStats(dbPath: string): void {
       output.stat('Newest Data', dateRange.newest);
     }
   } catch (error) {
-    logger.error('Failed to read cache stats', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Failed to read cache stats'
+    );
     output.error(
       'Failed to read cache statistics',
       error instanceof Error ? error.message : 'Unknown error'

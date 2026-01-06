@@ -4,7 +4,9 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'AnthropicSdkBackend' });
 import type { ClaudeBackend, MessageCreateParams, MessageResponse } from '../types.js';
 
 export interface AnthropicSdkConfig {
@@ -21,11 +23,10 @@ export class AnthropicSdkBackend implements ClaudeBackend {
   }
 
   async createMessage(params: MessageCreateParams): Promise<MessageResponse> {
-    logger.debug('Creating message via Anthropic SDK', {
-      model: params.model,
-      max_tokens: params.max_tokens,
-      messageCount: params.messages.length,
-    });
+    logger.debug(
+      { model: params.model, max_tokens: params.max_tokens, messageCount: params.messages.length },
+      'Creating message via Anthropic SDK'
+    );
 
     const response = await this.client.messages.create({
       model: params.model,

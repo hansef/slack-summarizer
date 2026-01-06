@@ -1,5 +1,7 @@
 import { getDatabase } from '@/core/cache/db.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'EmbeddingCache' });
 
 export interface CachedEmbedding {
   conversationId: string;
@@ -127,10 +129,10 @@ export function setCachedEmbedding(embedding: CachedEmbedding): void {
     embedding.createdAt
   );
 
-  logger.debug('Cached embedding', {
-    conversationId: embedding.conversationId,
-    dimensions: embedding.dimensions,
-  });
+  logger.debug(
+    { conversationId: embedding.conversationId, dimensions: embedding.dimensions },
+    'Cached embedding'
+  );
 }
 
 /**
@@ -164,9 +166,7 @@ export function setCachedEmbeddingsBatch(embeddings: CachedEmbedding[]): void {
 
   insertMany(embeddings);
 
-  logger.debug('Cached embeddings batch', {
-    count: embeddings.length,
-  });
+  logger.debug({ count: embeddings.length }, 'Cached embeddings batch');
 }
 
 /**
@@ -177,7 +177,7 @@ export function clearCachedEmbeddings(conversationId?: string): void {
 
   if (conversationId) {
     db.prepare('DELETE FROM conversation_embeddings WHERE conversation_id = ?').run(conversationId);
-    logger.debug('Cleared embedding cache for conversation', { conversationId });
+    logger.debug({ conversationId }, 'Cleared embedding cache for conversation');
   } else {
     db.prepare('DELETE FROM conversation_embeddings').run();
     logger.debug('Cleared all embedding cache');

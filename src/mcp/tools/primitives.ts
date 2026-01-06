@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { getSlackClient, SlackClient } from '@/core/slack/client.js';
 import { parseTimespan } from '@/utils/dates.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'McpPrimitives' });
 import type { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 
 /**
@@ -219,7 +221,7 @@ export async function handlePrimitiveTool(
           text: msg.text,
         }));
 
-        logger.info('Search completed', { query, results: results.length });
+        logger.info({ query, results: results.length }, 'Search completed');
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }],
@@ -244,10 +246,10 @@ export async function handlePrimitiveTool(
           reply_count: msg.reply_count,
         }));
 
-        logger.info('Channel history fetched', {
-          channel: input.channel_id,
-          messages: results.length,
-        });
+        logger.info(
+          { channel: input.channel_id, messages: results.length },
+          'Channel history fetched'
+        );
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }],
@@ -268,11 +270,10 @@ export async function handlePrimitiveTool(
           text: msg.text,
         }));
 
-        logger.info('Thread fetched', {
-          channel: input.channel_id,
-          thread: input.thread_ts,
-          replies: results.length,
-        });
+        logger.info(
+          { channel: input.channel_id, thread: input.thread_ts, replies: results.length },
+          'Thread fetched'
+        );
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }],
@@ -292,7 +293,7 @@ export async function handlePrimitiveTool(
           timestamp: r.timestamp,
         }));
 
-        logger.info('Reactions fetched', { userId, reactions: results.length });
+        logger.info({ userId, reactions: results.length }, 'Reactions fetched');
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }],
@@ -312,7 +313,7 @@ export async function handlePrimitiveTool(
           num_members: ch.num_members,
         }));
 
-        logger.info('Channels listed', { count: results.length });
+        logger.info({ count: results.length }, 'Channels listed');
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(results, null, 2) }],
@@ -336,10 +337,10 @@ export async function handlePrimitiveTool(
     }
 
     // Handle all other errors gracefully
-    logger.error('Primitive tool error', {
-      tool: name,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error(
+      { tool: name, error: error instanceof Error ? error.message : String(error) },
+      'Primitive tool error'
+    );
 
     return {
       content: [

@@ -1,5 +1,5 @@
 import { SlackClient, getSlackClient } from './client.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger, createTimer, type Logger, type Timer } from '@/utils/logging/index.js';
 import {
   SlackMessage,
   SlackChannel,
@@ -32,34 +32,37 @@ export interface FetcherOptions {
 export class DataFetcher {
   private client: SlackClient;
   private skipCache: boolean;
+  private logger: Logger;
+  private timer: Timer;
 
   constructor(options: FetcherOptions = {}) {
     this.client = options.client ?? getSlackClient();
     this.skipCache = options.skipCache ?? false;
+    this.logger = createLogger({ component: 'DataFetcher' });
+    this.timer = createTimer(this.logger);
   }
 
   async fetchUserActivity(
     userId: string | null,
     timeRange: DateRange
   ): Promise<UserActivityData> {
-    logger.timeStart('fetchUserActivity:total');
+    this.timer.start('fetchUserActivity:total');
     // Get current user if not specified
     const targetUserId = userId ?? (await this.client.getCurrentUserId());
 
-    logger.debug('Fetching user activity', {
-      userId: targetUserId,
-      start: formatISO(timeRange.start),
-      end: formatISO(timeRange.end),
-    });
+    this.logger.debug(
+      { userId: targetUserId, start: formatISO(timeRange.start), end: formatISO(timeRange.end) },
+      'Fetching user activity'
+    );
 
     // Step 1: Search for user's messages to identify active channels
     // Also get the search results to detect thread participation
-    logger.timeStart('fetchUserActivity:fetchActiveChannels');
+    this.timer.start('fetchUserActivity:fetchActiveChannels');
     const { channels, userSearchMessages } = await this.fetchActiveChannels(
       targetUserId,
       timeRange
     );
-    logger.timeEnd('fetchUserActivity:fetchActiveChannels', {
+    this.timer.end('fetchUserActivity:fetchActiveChannels', {
       channels: channels.length,
       searchMessages: userSearchMessages.length,
     });
@@ -78,9 +81,7 @@ export class DataFetcher {
       }
     }
 
-    logger.debug('Identified threads from search', {
-      threadCount: threadTsSet.size,
-    });
+    this.logger.debug({ threadCount: threadTsSet.size }, 'Identified threads from search');
 
     // Extend time range by 24 hours for conversation context
     const extendedTimeRange: DateRange = {
@@ -92,21 +93,21 @@ export class DataFetcher {
     let processedChannels = 0;
     const slackConcurrency = getEnv().SLACK_SUMMARIZER_SLACK_CONCURRENCY;
 
-    logger.debug('Fetching channel messages in parallel', {
-      totalChannels,
-      concurrency: slackConcurrency,
-    });
+    this.logger.debug(
+      { totalChannels, concurrency: slackConcurrency },
+      'Fetching channel messages in parallel'
+    );
 
     // Fetch channel messages in parallel
-    logger.timeStart('fetchUserActivity:fetchChannelMessages');
+    this.timer.start('fetchUserActivity:fetchChannelMessages');
     const channelResults = await mapWithConcurrency(
       channels,
       async (channel) => {
         processedChannels++;
-        logger.info('Fetching channel messages', {
-          progress: `${processedChannels}/${totalChannels}`,
-          channelName: channel.name,
-        });
+        this.logger.info(
+          { progress: `${processedChannels}/${totalChannels}`, channelName: channel.name },
+          'Fetching channel messages'
+        );
 
         const channelMessages = await this.fetchChannelMessages(
           channel.id,
@@ -118,7 +119,7 @@ export class DataFetcher {
       },
       slackConcurrency
     );
-    logger.timeEnd('fetchUserActivity:fetchChannelMessages', { channels: channelResults.length });
+    this.timer.end('fetchUserActivity:fetchChannelMessages', { channels: channelResults.length });
 
     // Process results
     // Note: We fetch with extended time range (24h lookback) for context,
@@ -147,12 +148,12 @@ export class DataFetcher {
     }
 
     // Step 3: Fetch full threads the user participated in (in parallel)
-    logger.debug('Fetching thread details in parallel', {
-      threadCount: threadTsSet.size,
-      concurrency: slackConcurrency,
-    });
+    this.logger.debug(
+      { threadCount: threadTsSet.size, concurrency: slackConcurrency },
+      'Fetching thread details in parallel'
+    );
 
-    logger.timeStart('fetchUserActivity:fetchThreads');
+    this.timer.start('fetchUserActivity:fetchThreads');
     const threadKeys = Array.from(threadTsSet);
     const threadResults = await mapWithConcurrency(
       threadKeys,
@@ -175,21 +176,21 @@ export class DataFetcher {
       },
       slackConcurrency
     );
-    logger.timeEnd('fetchUserActivity:fetchThreads', { threads: threadResults.length });
+    this.timer.end('fetchUserActivity:fetchThreads', { threads: threadResults.length });
 
     // Only include threads that have messages within the time range
     const filteredThreads = threadResults.filter((t) => t.messages.length > 0);
     threadsParticipated.push(...filteredThreads);
 
     // Step 4: Fetch @mentions
-    logger.timeStart('fetchUserActivity:fetchMentions');
+    this.timer.start('fetchUserActivity:fetchMentions');
     const mentionsReceived = await this.fetchMentions(targetUserId, timeRange);
-    logger.timeEnd('fetchUserActivity:fetchMentions', { mentions: mentionsReceived.length });
+    this.timer.end('fetchUserActivity:fetchMentions', { mentions: mentionsReceived.length });
 
     // Step 5: Fetch reactions given
-    logger.timeStart('fetchUserActivity:fetchReactions');
+    this.timer.start('fetchUserActivity:fetchReactions');
     const reactionsGiven = await this.fetchReactions(targetUserId, timeRange);
-    logger.timeEnd('fetchUserActivity:fetchReactions', { reactions: reactionsGiven.length });
+    this.timer.end('fetchUserActivity:fetchReactions', { reactions: reactionsGiven.length });
 
     const result: UserActivityData = {
       userId: targetUserId,
@@ -205,7 +206,7 @@ export class DataFetcher {
       allChannelMessages: allMessages,
     };
 
-    logger.timeEnd('fetchUserActivity:total', {
+    this.timer.end('fetchUserActivity:total', {
       messagesSent: messagesSent.length,
       mentionsReceived: mentionsReceived.length,
       threadsParticipated: threadsParticipated.length,
@@ -221,7 +222,7 @@ export class DataFetcher {
     if (!this.skipCache) {
       const cached = getCachedChannels();
       if (cached.length > 0) {
-        logger.debug('Using cached channels', { count: cached.length });
+        this.logger.debug({ count: cached.length }, 'Using cached channels');
         return cached;
       }
     }
@@ -245,20 +246,20 @@ export class DataFetcher {
     channelMap: Map<string, SlackChannel>;
     userSearchMessages: SlackMessage[];
   }> {
-    logger.debug('Searching for user messages to identify active channels', {
-      userId,
-      start: formatISO(timeRange.start),
-      end: formatISO(timeRange.end),
-    });
+    this.logger.debug(
+      { userId, start: formatISO(timeRange.start), end: formatISO(timeRange.end) },
+      'Searching for user messages to identify active channels'
+    );
 
     // Search for messages sent by this user in the time range
     let userMessages: SlackMessage[];
     try {
       userMessages = await this.client.searchUserMessages(userId, timeRange);
     } catch (error) {
-      logger.warn('Search API failed, falling back to all channels', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      this.logger.warn(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Search API failed, falling back to all channels'
+      );
       // Fallback: return all channels if search fails
       const allChannels = await this.fetchChannels();
       const channelMap = new Map<string, SlackChannel>();
@@ -276,14 +277,14 @@ export class DataFetcher {
       }
     }
 
-    logger.debug('Identified active channels from search', {
-      messagesFound: userMessages.length,
-      activeChannelCount: activeChannelIds.size,
-    });
+    this.logger.debug(
+      { messagesFound: userMessages.length, activeChannelCount: activeChannelIds.size },
+      'Identified active channels from search'
+    );
 
     // If no active channels found, return empty (user had no activity)
     if (activeChannelIds.size === 0) {
-      logger.info('No user activity found in time range');
+      this.logger.info('No user activity found in time range');
       return { channels: [], channelMap: new Map(), userSearchMessages: [] };
     }
 
@@ -301,10 +302,10 @@ export class DataFetcher {
       }
     }
 
-    logger.debug('Filtered to active channels', {
-      totalChannels: allChannels.length,
-      activeChannels: activeChannels.length,
-    });
+    this.logger.debug(
+      { totalChannels: allChannels.length, activeChannels: activeChannels.length },
+      'Filtered to active channels'
+    );
 
     return { channels: activeChannels, channelMap, userSearchMessages: userMessages };
   }
@@ -332,7 +333,7 @@ export class DataFetcher {
             userMessages.push(msg);
           }
         }
-        logger.debug('Using cached messages for day', { channelId, dayBucket, count: cached.length });
+        this.logger.debug({ channelId, dayBucket, count: cached.length }, 'Using cached messages for day');
         continue;
       }
 
@@ -381,7 +382,7 @@ export class DataFetcher {
 
       if (allCached) {
         const cached = getCachedMentions(userId, timeRange);
-        logger.debug('Using cached mentions', { userId, count: cached.length });
+        this.logger.debug({ userId, count: cached.length }, 'Using cached mentions');
         return cached;
       }
     }
@@ -419,7 +420,7 @@ export class DataFetcher {
 
       if (allCached) {
         const cached = getCachedReactions(userId, timeRange);
-        logger.debug('Using cached reactions', { userId, count: cached.length });
+        this.logger.debug({ userId, count: cached.length }, 'Using cached reactions');
         return cached;
       }
     }

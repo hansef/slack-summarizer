@@ -1,7 +1,9 @@
 import { Conversation } from '@/core/models/conversation.js';
 import { SlackMessage } from '@/core/models/slack.js';
 import { fromSlackTimestamp, getMinutesBetween } from '@/utils/dates.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'ContextEnricher' });
 
 /**
  * Configuration for context enrichment
@@ -280,11 +282,10 @@ export function enrichConversation(
           ...markAsContext(mentionContext, CONTEXT_SUBTYPES.MENTION_CONTEXT)
         );
         reasons.push('mention_lookback');
-        logger.debug('Added mention lookback context', {
-          conversationId: conversation.id,
-          channelId: conversation.channelId,
-          contextCount: mentionContext.length,
-        });
+        logger.debug(
+          { conversationId: conversation.id, channelId: conversation.channelId, contextCount: mentionContext.length },
+          'Added mention lookback context'
+        );
       }
     }
   }
@@ -303,12 +304,10 @@ export function enrichConversation(
           ...markAsContext(shortContext, CONTEXT_SUBTYPES.CONTEXT)
         );
         reasons.push('short_segment_expansion');
-        logger.debug('Added short segment context', {
-          conversationId: conversation.id,
-          channelId: conversation.channelId,
-          originalCount: conversation.messageCount,
-          contextCount: shortContext.length,
-        });
+        logger.debug(
+          { conversationId: conversation.id, channelId: conversation.channelId, originalCount: conversation.messageCount, contextCount: shortContext.length },
+          'Added short segment context'
+        );
       }
     }
   }
@@ -397,12 +396,10 @@ export function enrichConversations(
   });
 
   if (totalContextAdded > 0) {
-    logger.debug('Context enrichment complete', {
-      conversationsEnriched: mentionLookbackCount + shortSegmentCount,
-      mentionLookbacks: mentionLookbackCount,
-      shortSegmentExpansions: shortSegmentCount,
-      totalContextMessagesAdded: totalContextAdded,
-    });
+    logger.debug(
+      { conversationsEnriched: mentionLookbackCount + shortSegmentCount, mentionLookbacks: mentionLookbackCount, shortSegmentExpansions: shortSegmentCount, totalContextMessagesAdded: totalContextAdded },
+      'Context enrichment complete'
+    );
   }
 
   return enriched;

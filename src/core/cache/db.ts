@@ -4,7 +4,9 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { mkdirSync, existsSync } from 'fs';
 import { getEnv } from '@/utils/env.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'Database' });
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -37,7 +39,7 @@ export function getDatabase(dbPath?: string): Database.Database {
   const dbDir = dirname(finalPath);
   if (!existsSync(dbDir)) {
     mkdirSync(dbDir, { recursive: true, mode: 0o700 });
-    logger.debug('Created cache directory', { path: dbDir });
+    logger.debug({ path: dbDir }, 'Created cache directory');
   }
 
   db = new Database(finalPath);
@@ -47,7 +49,7 @@ export function getDatabase(dbPath?: string): Database.Database {
   // Run migrations
   initializeSchema(db);
 
-  logger.debug('Database initialized', { path: finalPath });
+  logger.debug({ path: finalPath }, 'Database initialized');
   return db;
 }
 
@@ -115,7 +117,7 @@ export function registerCleanupHandlers(): void {
 
   // Handle uncaught exceptions
   process.on('uncaughtException', (error) => {
-    logger.error('Uncaught exception, closing database', { error: error.message });
+    logger.error({ err: error }, 'Uncaught exception, closing database');
     cleanup();
     process.exit(1);
   });

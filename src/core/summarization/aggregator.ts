@@ -4,7 +4,7 @@ import { hybridSegmentation } from '@/core/segmentation/hybrid.js';
 import { consolidateConversations, ConversationGroup } from '@/core/consolidation/consolidator.js';
 import { parseSlackMessageLinks } from '@/core/consolidation/reference-extractor.js';
 import { SummarizationClient, getSummarizationClient } from './client.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger, createTimer, type Logger, type Timer } from '@/utils/logging/index.js';
 import { getEnv } from '@/utils/env.js';
 import { parseTimespan, formatISO, now } from '@/utils/dates.js';
 import { mapWithConcurrency, mapWithGlobalClaudeLimiter } from '@/utils/concurrency.js';
@@ -40,12 +40,16 @@ export class SummaryAggregator {
   private summarizationClient: SummarizationClient;
   private dataFetcher: DataFetcher;
   private onProgress?: ProgressCallback;
+  private logger: Logger;
+  private timer: Timer;
 
   constructor(config: AggregatorConfig = {}) {
     this.slackClient = config.slackClient ?? getSlackClient();
     this.summarizationClient = config.summarizationClient ?? getSummarizationClient();
     this.dataFetcher = config.dataFetcher ?? createDataFetcher();
     this.onProgress = config.onProgress;
+    this.logger = createLogger({ component: 'SummaryAggregator' });
+    this.timer = createTimer(this.logger);
   }
 
   private emitProgress(event: ProgressEvent): void {
@@ -56,43 +60,41 @@ export class SummaryAggregator {
     timespan: string,
     userId?: string
   ): Promise<SummaryOutput> {
-    logger.timeStart('generateSummary:total');
+    this.timer.start('generateSummary:total');
     const timeRange = parseTimespan(timespan);
     const targetUserId = userId ?? (await this.slackClient.getCurrentUserId());
     const timezone = getEnv().SLACK_SUMMARIZER_TIMEZONE;
 
-    logger.debug('Generating summary', {
-      userId: targetUserId,
-      timespan,
-      start: formatISO(timeRange.start),
-      end: formatISO(timeRange.end),
-    });
+    this.logger.debug(
+      { userId: targetUserId, timespan, start: formatISO(timeRange.start), end: formatISO(timeRange.end) },
+      'Generating summary'
+    );
 
     // Step 1: Fetch all user activity
     this.emitProgress({ stage: 'fetching', message: 'Searching for Slack activity...' });
-    logger.timeStart('generateSummary:fetchUserActivity');
+    this.timer.start('generateSummary:fetchUserActivity');
     const activity = await this.dataFetcher.fetchUserActivity(targetUserId, timeRange);
-    logger.timeEnd('generateSummary:fetchUserActivity', {
+    this.timer.end('generateSummary:fetchUserActivity', {
       messagesSent: activity.messagesSent.length,
       channels: activity.channels.length,
       threads: activity.threadsParticipated.length,
     });
 
     // Step 2: Build user display names map (bulk fetch all workspace users)
-    logger.timeStart('generateSummary:buildUserDisplayNames');
+    this.timer.start('generateSummary:buildUserDisplayNames');
     const userDisplayNames = await this.buildUserDisplayNames();
-    logger.timeEnd('generateSummary:buildUserDisplayNames', { count: userDisplayNames.size });
+    this.timer.end('generateSummary:buildUserDisplayNames', { count: userDisplayNames.size });
 
     // Step 3: Group messages by channel, segment, consolidate, and summarize
     this.emitProgress({ stage: 'segmenting', message: 'Processing conversations...', total: activity.channels.length });
-    logger.debug('Segmenting, consolidating, and summarizing conversations...');
-    logger.timeStart('generateSummary:buildChannelSummaries');
+    this.logger.debug('Segmenting, consolidating, and summarizing conversations...');
+    this.timer.start('generateSummary:buildChannelSummaries');
     const channelSummaries = await this.buildChannelSummaries(
       activity,
       targetUserId,
       userDisplayNames
     );
-    logger.timeEnd('generateSummary:buildChannelSummaries', { channels: channelSummaries.length });
+    this.timer.end('generateSummary:buildChannelSummaries', { channels: channelSummaries.length });
 
     // Step 4: Calculate aggregate statistics
     const summary = this.calculateAggregateStats(activity);
@@ -120,7 +122,7 @@ export class SummaryAggregator {
     };
 
     this.emitProgress({ stage: 'complete', message: 'Summary complete' });
-    logger.timeEnd('generateSummary:total', {
+    this.timer.end('generateSummary:total', {
       channels: output.summary.total_channels,
       messages: output.summary.total_messages,
     });
@@ -187,10 +189,10 @@ export class SummaryAggregator {
           const fullChannelInfo = await this.slackClient.getChannelInfo(channelId);
           otherUserId = fullChannelInfo.user;
         } catch (error) {
-          logger.warn('Failed to get DM channel info', {
-            channelId,
-            error: error instanceof Error ? error.message : String(error),
-          });
+          this.logger.warn(
+            { channelId, error: error instanceof Error ? error.message : String(error) },
+            'Failed to get DM channel info'
+          );
         }
       }
 
@@ -218,10 +220,10 @@ export class SummaryAggregator {
           const fullChannelInfo = await this.slackClient.getChannelInfo(channelId);
           memberIds = fullChannelInfo.members;
         } catch (error) {
-          logger.warn('Failed to get MPIM channel info', {
-            channelId,
-            error: error instanceof Error ? error.message : String(error),
-          });
+          this.logger.warn(
+            { channelId, error: error instanceof Error ? error.message : String(error) },
+            'Failed to get MPIM channel info'
+          );
         }
       }
 
@@ -342,10 +344,10 @@ export class SummaryAggregator {
     const env = getEnv();
     const channelConcurrency = env.SLACK_SUMMARIZER_CHANNEL_CONCURRENCY;
 
-    logger.debug('Processing channels in parallel', {
-      totalChannels,
-      concurrency: channelConcurrency,
-    });
+    this.logger.debug(
+      { totalChannels, concurrency: channelConcurrency },
+      'Processing channels in parallel'
+    );
 
     // Process channels in parallel with concurrency limit
     const channelIdArray = Array.from(channelIds);
@@ -369,10 +371,10 @@ export class SummaryAggregator {
           current: processedChannels,
           total: totalChannels,
         });
-        logger.info('Processing channel', {
-          progress: `${processedChannels}/${totalChannels}`,
-          channel: channelName,
-        });
+        this.logger.info(
+          { progress: `${processedChannels}/${totalChannels}`, channel: channelName },
+          'Processing channel'
+        );
 
         const messages = messagesByChannel.get(channelId) ?? [];
         const mentions = mentionsByChannel.get(channelId) ?? [];
@@ -392,17 +394,16 @@ export class SummaryAggregator {
         );
         const segmentDuration = performance.now() - segmentStart;
 
-        logger.debug('Segmented channel', {
-          channel: channelName,
-          conversations: segmentResult.conversations.length,
-          durationMs: Math.round(segmentDuration),
-        });
+        this.logger.debug(
+          { channel: channelName, conversations: segmentResult.conversations.length, durationMs: Math.round(segmentDuration) },
+          'Segmented channel'
+        );
 
         // Step 2: Consolidate related conversations (with optional embedding-based similarity)
         const consolidateStart = performance.now();
         const enableEmbeddings = env.SLACK_SUMMARIZER_ENABLE_EMBEDDINGS && !!env.OPENAI_API_KEY;
         if (env.SLACK_SUMMARIZER_ENABLE_EMBEDDINGS && !env.OPENAI_API_KEY) {
-          logger.warn('Embeddings enabled but OPENAI_API_KEY not set, falling back to reference-only');
+          this.logger.warn('Embeddings enabled but OPENAI_API_KEY not set, falling back to reference-only');
         }
         const consolidationResult = await consolidateConversations(segmentResult.conversations, {
           embeddings: {
@@ -414,14 +415,17 @@ export class SummaryAggregator {
         });
         const consolidateDuration = performance.now() - consolidateStart;
 
-        logger.debug('Consolidated channel', {
-          channel: channelName,
-          originalSegments: segmentResult.conversations.length,
-          consolidatedTopics: consolidationResult.groups.length,
-          botsMerged: consolidationResult.stats.botConversationsMerged,
-          trivialsDropped: consolidationResult.stats.trivialConversationsDropped,
-          durationMs: Math.round(consolidateDuration),
-        });
+        this.logger.debug(
+          {
+            channel: channelName,
+            originalSegments: segmentResult.conversations.length,
+            consolidatedTopics: consolidationResult.groups.length,
+            botsMerged: consolidationResult.stats.botConversationsMerged,
+            trivialsDropped: consolidationResult.stats.trivialConversationsDropped,
+            durationMs: Math.round(consolidateDuration),
+          },
+          'Consolidated channel'
+        );
 
         // Step 3: Generate permalinks for each group
         const linksStart = performance.now();
@@ -445,15 +449,18 @@ export class SummaryAggregator {
         const summarizeDuration = performance.now() - summarizeStart;
 
         const channelTotalDuration = performance.now() - channelStartTime;
-        logger.debug('[PERF] Channel processing complete', {
-          channel: channelName,
-          segmentMs: Math.round(segmentDuration),
-          consolidateMs: Math.round(consolidateDuration),
-          linksMs: Math.round(linksDuration),
-          summarizeMs: Math.round(summarizeDuration),
-          totalMs: Math.round(channelTotalDuration),
-          groups: consolidationResult.groups.length,
-        });
+        this.logger.debug(
+          {
+            channel: channelName,
+            segmentMs: Math.round(segmentDuration),
+            consolidateMs: Math.round(consolidateDuration),
+            linksMs: Math.round(linksDuration),
+            summarizeMs: Math.round(summarizeDuration),
+            totalMs: Math.round(channelTotalDuration),
+            groups: consolidationResult.groups.length,
+          },
+          '[PERF] Channel processing complete'
+        );
 
         // Only include channels where user actively participated (sent messages or threads)
         // Exclude channels where user was only mentioned but didn't participate
@@ -530,11 +537,10 @@ export class SummaryAggregator {
           const link = await this.slackClient.getPermalink(channelId, messageTs);
           slackLinks.set(convId, link);
         } catch (error) {
-          logger.warn('Failed to get permalink', {
-            channelId,
-            conversationId: convId,
-            error: error instanceof Error ? error.message : String(error),
-          });
+          this.logger.warn(
+            { channelId, conversationId: convId, error: error instanceof Error ? error.message : String(error) },
+            'Failed to get permalink'
+          );
           slackLinks.set(convId, fallbackLink);
         }
       },
@@ -565,21 +571,20 @@ export class SummaryAggregator {
       batches.push(groups.slice(i, i + batchSize));
     }
 
-    logger.debug('Summarizing topics in parallel', {
-      totalBatches,
-      totalGroups: groups.length,
-      concurrency: claudeConcurrency,
-    });
+    this.logger.debug(
+      { totalBatches, totalGroups: groups.length, concurrency: claudeConcurrency },
+      'Summarizing topics in parallel'
+    );
 
     // Process batches using the GLOBAL Claude concurrency limiter
     // This ensures all Claude API calls across all channels share the same limit
     const batchResults = await mapWithGlobalClaudeLimiter(
       batches,
       async (batch, batchIndex) => {
-        logger.debug('Summarizing batch', {
-          batch: `${batchIndex + 1}/${totalBatches}`,
-          topics: batch.length,
-        });
+        this.logger.debug(
+          { batch: `${batchIndex + 1}/${totalBatches}`, topics: batch.length },
+          'Summarizing batch'
+        );
 
         return this.summarizationClient.summarizeGroupsBatch(
           batch,
@@ -657,11 +662,10 @@ export class SummaryAggregator {
             fetchedLinks.set(cacheKey, null);
           }
         } catch (error) {
-          logger.warn('Failed to fetch linked Slack message', {
-            channelId,
-            messageTs,
-            error: error instanceof Error ? error.message : String(error),
-          });
+          this.logger.warn(
+            { channelId, messageTs, error: error instanceof Error ? error.message : String(error) },
+            'Failed to fetch linked Slack message'
+          );
           fetchedLinks.set(cacheKey, null);
         }
       },
@@ -697,7 +701,7 @@ export class SummaryAggregator {
     }
 
     if (enrichedCount > 0) {
-      logger.debug('Enriched Slack message links', { enrichedCount });
+      this.logger.debug({ enrichedCount }, 'Enriched Slack message links');
     }
   }
 

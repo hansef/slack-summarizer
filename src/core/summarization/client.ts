@@ -1,6 +1,8 @@
 import { getEnv, type ClaudeModel } from '@/utils/env.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
 import { ConversationGroup, getGroupSlackLinks } from '@/core/consolidation/consolidator.js';
+
+const logger = createLogger({ component: 'SummarizationClient' });
 import { ConversationSummary } from '@/core/models/summary.js';
 import { SlackClient, getSlackClient } from '@/core/slack/client.js';
 import {
@@ -36,10 +38,10 @@ export class SummarizationClient {
     });
     this.backend = provider.getBackend();
 
-    logger.debug('Initialized SummarizationClient', {
-      backendType: this.backend.backendType,
-      model: this.model,
-    });
+    logger.debug(
+      { backendType: this.backend.backendType, model: this.model },
+      'Initialized SummarizationClient'
+    );
   }
 
   /**
@@ -120,7 +122,7 @@ export class SummarizationClient {
 
     if (unresolvedIds.size === 0) return;
 
-    logger.debug('Pre-resolving user IDs for prompt', { count: unresolvedIds.size });
+    logger.debug({ count: unresolvedIds.size }, 'Pre-resolving user IDs for prompt');
 
     // Resolve all unknown users (this populates userDisplayNames map)
     await this.resolveParticipants([...unresolvedIds], userDisplayNames);
@@ -156,9 +158,10 @@ export class SummarizationClient {
 
       const parsed = parseNarrativeSummaryResponse(content.text);
       if (!parsed) {
-        logger.warn('Failed to parse narrative summary response', {
-          response: content.text.substring(0, 200),
-        });
+        logger.warn(
+          { response: content.text.substring(0, 200) },
+          'Failed to parse narrative summary response'
+        );
         return await this.createFallbackSummary(group, userDisplayNames, primaryLink, allLinks);
       }
 
@@ -181,10 +184,10 @@ export class SummarizationClient {
         segments_merged: group.conversations.length > 1 ? group.conversations.length : undefined,
       };
     } catch (error) {
-      logger.error('Narrative summarization failed', {
-        error: error instanceof Error ? error.message : String(error),
-        groupId: group.id,
-      });
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error), groupId: group.id },
+        'Narrative summarization failed'
+      );
       return await this.createFallbackSummary(group, userDisplayNames, primaryLink, allLinks);
     }
   }
@@ -230,10 +233,10 @@ export class SummarizationClient {
 
       const parsed = parseNarrativeBatchResponse(content.text);
       if (!parsed || parsed.length !== groups.length) {
-        logger.warn('Failed to parse batch narrative response', {
-          expected: groups.length,
-          got: parsed?.length,
-        });
+        logger.warn(
+          { expected: groups.length, got: parsed?.length },
+          'Failed to parse batch narrative response'
+        );
         // Fall back to individual summarization
         return this.summarizeGroupsIndividually(groups, userId, userDisplayNames, slackLinks);
       }
@@ -262,9 +265,10 @@ export class SummarizationClient {
         })
       );
     } catch (error) {
-      logger.error('Batch narrative summarization failed', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.error(
+        { error: error instanceof Error ? error.message : String(error) },
+        'Batch narrative summarization failed'
+      );
       return this.summarizeGroupsIndividually(groups, userId, userDisplayNames, slackLinks);
     }
   }

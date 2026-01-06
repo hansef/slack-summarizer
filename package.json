@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
+    "pino": "^9.6.0",
     "@iarna/toml": "^3.0.0",
     "@inkjs/ui": "^2.0.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
+    "pino-pretty": "^13.0.0",
     "@types/luxon": "^3.4.0",
     "@types/node": "^20.0.0",
     "@types/prompts": "^2.4.9",

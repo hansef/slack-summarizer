@@ -1,5 +1,7 @@
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
 import { getEnv } from '@/utils/env.js';
+
+const logger = createLogger({ component: 'RateLimiter' });
 
 interface RateLimiterConfig {
   requestsPerSecond: number;
@@ -86,7 +88,7 @@ export class RateLimiter {
     const retryAfter = this.extractRetryAfter(error);
 
     if (retryAfter !== null) {
-      logger.warn('Rate limited by Slack API', { retryAfterSeconds: retryAfter });
+      logger.warn({ retryAfterSeconds: retryAfter }, 'Rate limited by Slack API');
       await this.sleep(retryAfter * 1000);
       return true; // Keep in queue, will retry
     }
@@ -101,11 +103,10 @@ export class RateLimiter {
         this.config.maxBackoffMs
       );
 
-      logger.warn('Retrying request after error', {
-        attempt: request.retries,
-        backoffMs: backoff,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.warn(
+        { attempt: request.retries, backoffMs: backoff, error: error instanceof Error ? error.message : String(error) },
+        'Retrying request after error'
+      );
 
       await this.sleep(backoff);
       return true; // Keep in queue, will retry

@@ -1,6 +1,6 @@
 import { WebClient } from '@slack/web-api';
 import { getEnv } from '@/utils/env.js';
-import { logger } from '@/utils/logger.js';
+import { createLogger, type Logger } from '@/utils/logging/index.js';
 import { getRateLimiter, RateLimiter } from './rate-limiter.js';
 import {
   SlackChannel,
@@ -25,11 +25,13 @@ export class SlackClient {
   private rateLimiter: RateLimiter;
   private userId: string | null = null;
   private userCache = new Map<string, SlackUser>();
+  private logger: Logger;
 
   constructor(config: SlackClientConfig = {}) {
     const token = config.token ?? getEnv().SLACK_USER_TOKEN;
     this.client = new WebClient(token);
     this.rateLimiter = config.rateLimiter ?? getRateLimiter();
+    this.logger = createLogger({ component: 'SlackClient' });
   }
 
   async authenticate(): Promise<AuthTestResponse> {
@@ -38,11 +40,10 @@ export class SlackClient {
     const parsed = AuthTestResponseSchema.parse(response);
     this.userId = parsed.user_id;
 
-    logger.info('Authenticated with Slack', {
-      user: parsed.user,
-      team: parsed.team,
-      userId: parsed.user_id,
-    });
+    this.logger.info(
+      { user: parsed.user, team: parsed.team, userId: parsed.user_id },
+      'Authenticated with Slack'
+    );
 
     return parsed;
   }
@@ -79,14 +80,14 @@ export class SlackClient {
           const parsed = SlackChannelSchema.parse(ch);
           channels.push(parsed);
         } catch (e) {
-          logger.warn('Failed to parse channel', { channel: ch, error: String(e) });
+          this.logger.warn({ channel: ch, error: String(e) }, 'Failed to parse channel');
         }
       }
 
       cursor = response.response_metadata?.next_cursor;
     } while (cursor);
 
-    logger.debug('Listed channels', { count: channels.length });
+    this.logger.debug({ count: channels.length }, 'Listed channels');
     return channels;
   }
 
@@ -120,7 +121,7 @@ export class SlackClient {
           const parsed = SlackMessageSchema.parse({ ...msg, channel: channelId });
           messages.push(parsed);
         } catch (e) {
-          logger.warn('Failed to parse message', { message: msg, error: String(e) });
+          this.logger.warn({ message: msg, error: String(e) }, 'Failed to parse message');
         }
       }
 
@@ -154,7 +155,7 @@ export class SlackClient {
           const parsed = SlackMessageSchema.parse({ ...msg, channel: channelId });
           messages.push(parsed);
         } catch (e) {
-          logger.warn('Failed to parse reply', { message: msg, error: String(e) });
+          this.logger.warn({ message: msg, error: String(e) }, 'Failed to parse reply');
         }
       }
 
@@ -216,7 +217,7 @@ export class SlackClient {
           };
           messages.push(msg);
         } catch (e) {
-          logger.warn('Failed to parse search result', { match, error: String(e) });
+          this.logger.warn({ match, error: String(e) }, 'Failed to parse search result');
         }
       }
 
@@ -228,7 +229,7 @@ export class SlackClient {
       }
     }
 
-    logger.debug('Search completed', { query: fullQuery, count: messages.length });
+    this.logger.debug({ query: fullQuery, count: messages.length }, 'Search completed');
     return messages;
   }
 
@@ -307,7 +308,7 @@ export class SlackClient {
       }
     }
 
-    logger.debug('Found reactions given', { userId, count: reactions.length });
+    this.logger.debug({ userId, count: reactions.length }, 'Found reactions given');
     return reactions;
   }
 
@@ -350,15 +351,14 @@ export class SlackClient {
       try {
         return SlackMessageSchema.parse({ ...msg, channel: channelId });
       } catch (e) {
-        logger.warn('Failed to parse fetched message', { messageTs, error: String(e) });
+        this.logger.warn({ messageTs, error: String(e) }, 'Failed to parse fetched message');
         return null;
       }
     } catch (error) {
-      logger.warn('Failed to fetch message', {
-        channelId,
-        messageTs,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      this.logger.warn(
+        { channelId, messageTs, error: error instanceof Error ? error.message : String(error) },
+        'Failed to fetch message'
+      );
       return null;
     }
   }
@@ -435,7 +435,7 @@ export class SlackClient {
       cursor = response.response_metadata?.next_cursor;
     } while (cursor);
 
-    logger.debug('Listed users', { count: users.length });
+    this.logger.debug({ count: users.length }, 'Listed users');
     return users;
   }
 

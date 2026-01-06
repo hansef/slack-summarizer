@@ -1,4 +1,6 @@
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'SemanticAnalysis' });
 import { SlackMessage } from '@/core/models/slack.js';
 import { MessagePair } from '@/core/models/conversation.js';
 import { getClaudeProvider, type ClaudeBackend } from '@/core/llm/index.js';
@@ -106,9 +108,10 @@ Respond with ONLY a JSON array of objects, one per pair, with "index" (1-based p
     // Parse the JSON response
     const jsonMatch = content.text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      logger.warn('Failed to extract JSON from semantic analysis response', {
-        response: content.text.substring(0, 200),
-      });
+      logger.warn(
+        { response: content.text.substring(0, 200) },
+        'Failed to extract JSON from semantic analysis response'
+      );
       // Fall back to no boundaries
       return pairs.map((pair) => ({
         index: pair.index,
@@ -125,9 +128,10 @@ Respond with ONLY a JSON array of objects, one per pair, with "index" (1-based p
       confidence: 0.8, // Fixed confidence for now
     }));
   } catch (error) {
-    logger.error('Semantic analysis failed', {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Semantic analysis failed'
+    );
 
     // Fall back to no boundaries on error
     return pairs.map((pair) => ({

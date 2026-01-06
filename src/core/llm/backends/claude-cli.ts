@@ -9,7 +9,9 @@ import { spawn } from 'child_process';
 import { mkdirSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { logger } from '@/utils/logger.js';
+import { createLogger } from '@/utils/logging/index.js';
+
+const logger = createLogger({ component: 'ClaudeCliBacked' });
 import type { ClaudeBackend, MessageCreateParams, MessageResponse } from '../types.js';
 
 export interface ClaudeCliConfig {
@@ -28,7 +30,7 @@ export class ClaudeCliBackend implements ClaudeBackend {
   constructor(config: ClaudeCliConfig) {
     this.oauthToken = config.oauthToken;
     this.cliPath = config.cliPath ?? 'claude';
-    logger.debug('Initialized Claude CLI backend', { cliPath: this.cliPath });
+    logger.debug({ cliPath: this.cliPath }, 'Initialized Claude CLI backend');
 
     // Ensure temp directory exists
     if (!existsSync(CLI_TEMP_DIR)) {
@@ -37,11 +39,10 @@ export class ClaudeCliBackend implements ClaudeBackend {
   }
 
   async createMessage(params: MessageCreateParams): Promise<MessageResponse> {
-    logger.debug('Creating message via Claude CLI', {
-      model: params.model,
-      max_tokens: params.max_tokens,
-      messageCount: params.messages.length,
-    });
+    logger.debug(
+      { model: params.model, max_tokens: params.max_tokens, messageCount: params.messages.length },
+      'Creating message via Claude CLI'
+    );
 
     // Build prompt from messages array (CLI expects single prompt via stdin)
     const prompt = params.messages.map((msg) => msg.content).join('\n\n');
@@ -81,10 +82,10 @@ export class ClaudeCliBackend implements ClaudeBackend {
         '--no-session-persistence', // Don't save session history
       ];
 
-      logger.debug('Spawning claude CLI', {
-        model: opts.model,
-        promptLength: opts.prompt.length,
-      });
+      logger.debug(
+        { model: opts.model, promptLength: opts.prompt.length },
+        'Spawning claude CLI'
+      );
 
       const child = spawn(this.cliPath, args, {
         cwd: CLI_TEMP_DIR, // Run from temp dir to avoid polluting user's project sessions
@@ -102,10 +103,10 @@ export class ClaudeCliBackend implements ClaudeBackend {
 
       // Set up timeout to kill hung processes
       const timeout = setTimeout(() => {
-        logger.error('Claude CLI timeout', {
-          model: opts.model,
-          promptLength: opts.prompt.length,
-        });
+        logger.error(
+          { model: opts.model, promptLength: opts.prompt.length },
+          'Claude CLI timeout'
+        );
         child.kill('SIGTERM');
         reject(new Error(`Claude CLI timed out after ${TIMEOUT_MS / 1000}s`));
       }, TIMEOUT_MS);
@@ -120,32 +121,33 @@ export class ClaudeCliBackend implements ClaudeBackend {
       child.stderr.on('data', (data: Buffer) => {
         stderr += data.toString();
         // Log stderr in real-time for debugging
-        logger.debug('Claude CLI stderr', { chunk: data.toString().substring(0, 200) });
+        logger.debug({ chunk: data.toString().substring(0, 200) }, 'Claude CLI stderr');
       });
 
       child.on('close', (code) => {
         clearTimeout(timeout);
         if (code !== 0) {
-          logger.error('Claude CLI failed', {
-            code,
-            stderr: stderr.substring(0, 500),
-          });
+          logger.error(
+            { code, stderr: stderr.substring(0, 500) },
+            'Claude CLI failed'
+          );
           reject(new Error(`Claude CLI exited with code ${code}: ${stderr}`));
         } else if (!stdout.trim()) {
           // Claude CLI sometimes returns empty responses on rate limits or errors
-          logger.error('Claude CLI returned empty response', {
-            stderr: stderr.substring(0, 500),
-          });
+          logger.error(
+            { stderr: stderr.substring(0, 500) },
+            'Claude CLI returned empty response'
+          );
           reject(new Error('Claude CLI returned empty response'));
         } else {
-          logger.debug('Claude CLI completed', { stdoutLength: stdout.length });
+          logger.debug({ stdoutLength: stdout.length }, 'Claude CLI completed');
           resolve(stdout);
         }
       });
 
       child.on('error', (err) => {
         clearTimeout(timeout);
-        logger.error('Failed to spawn claude CLI', { error: err.message });
+        logger.error({ error: err.message }, 'Failed to spawn claude CLI');
         reject(new Error(`Failed to spawn claude CLI: ${err.message}`));
       });
     });
@@ -178,10 +180,10 @@ export class ClaudeCliBackend implements ClaudeBackend {
         ],
       };
     } catch (error) {
-      logger.warn('Failed to parse CLI JSON response, using raw output', {
-        error: error instanceof Error ? error.message : String(error),
-        stdoutPreview: stdout.substring(0, 200),
-      });
+      logger.warn(
+        { error: error instanceof Error ? error.message : String(error), stdoutPreview: stdout.substring(0, 200) },
+        'Failed to parse CLI JSON response, using raw output'
+      );
 
       // Fallback: treat entire stdout as text response
       return {
