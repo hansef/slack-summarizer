@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
 export const SummarizationConfigSchema = z.object({
-  model: z.enum(['claude-haiku-4-5-20251001', 'claude-sonnet-4-5-20250929']),
+  model: z.enum([
+    'claude-haiku-4-5-20251001',
+    'claude-sonnet-4-5-20250929',
+    'claude-sonnet-4-6',
+    'claude-opus-4-7',
+  ]),
   apiKey: z.string(),
 });
 
