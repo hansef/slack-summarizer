@@ -24,8 +24,8 @@ RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=builder /app/dist ./dist
 
-# Copy non-compiled assets
-COPY src/core/cache/schema.sql ./dist/core/cache/
+# Copy non-compiled assets (force world-readable so non-root runtime user can read)
+COPY --chmod=0644 src/core/cache/schema.sql ./dist/core/cache/
 
 # Cache directory
 RUN mkdir -p /cache && chown node:node /cache
