@@ -130,6 +130,18 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   }
 });
 
+// Exit when the client closes stdio. Without this the node event loop
+// stays alive after the MCP pipe dies, leaving the container running
+// indefinitely and locking the shared cache volume for future instances.
+process.stdin.on('end', () => {
+  logger.info('stdin closed by client — shutting down');
+  process.exit(0);
+});
+process.stdin.on('close', () => {
+  logger.info('stdin stream closed — shutting down');
+  process.exit(0);
+});
+
 // Start the server
 async function main(): Promise<void> {
   logger.info('Starting MCP server...');
