@@ -49,9 +49,15 @@ function getConfiguredLevel(): LogLevel {
 
 /**
  * Create the Pino logger instance with appropriate configuration.
+ *
+ * IMPORTANT: All log output goes to stderr (fd 2). The MCP server uses stdio
+ * transport, where stdout is reserved for JSON-RPC protocol traffic. Mixing
+ * log lines into stdout corrupts the protocol and triggers ZodError parse
+ * failures in the MCP client. Per Unix convention, diagnostics belong on
+ * stderr anyway — the CLI's user-facing output goes through `output.ts`.
  */
 function createPinoInstance(level: LogLevel): PinoLogger {
-  const isTTY = process.stdout.isTTY ?? false;
+  const isTTY = process.stderr.isTTY ?? false;
 
   const baseConfig: LoggerOptions = {
     level: silentMode ? 'silent' : level,
@@ -67,7 +73,8 @@ function createPinoInstance(level: LogLevel): PinoLogger {
   };
 
   // Use pino-pretty for human-readable TTY output, but only if available
-  // (it's a dev dependency, so not present in production)
+  // (it's a dev dependency, so not present in production). pino-pretty also
+  // gets `destination: 2` so the pretty-formatted output writes to stderr.
   if (isTTY && isPinoPrettyAvailable()) {
     return pino({
       ...baseConfig,
@@ -77,13 +84,15 @@ function createPinoInstance(level: LogLevel): PinoLogger {
           colorize: true,
           translateTime: 'SYS:standard',
           ignore: 'pid,hostname',
+          destination: 2,
         },
       },
     });
   }
 
-  // JSON output for non-TTY or when pino-pretty is not available
-  return pino(baseConfig);
+  // JSON output to stderr for non-TTY (MCP, log files) or when pino-pretty
+  // is not available.
+  return pino(baseConfig, pino.destination(2));
 }
 
 /**
