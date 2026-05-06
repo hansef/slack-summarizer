@@ -130,18 +130,6 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   }
 });
 
-// Exit when the client closes stdio. Without this the node event loop
-// stays alive after the MCP pipe dies, leaving the container running
-// indefinitely and locking the shared cache volume for future instances.
-process.stdin.on('end', () => {
-  logger.info('stdin closed by client — shutting down');
-  process.exit(0);
-});
-process.stdin.on('close', () => {
-  logger.info('stdin stream closed — shutting down');
-  process.exit(0);
-});
-
 // Start the server
 async function main(): Promise<void> {
   logger.info('Starting MCP server...');
@@ -150,6 +138,17 @@ async function main(): Promise<void> {
   await server.connect(transport);
 
   logger.info('MCP server connected via stdio');
+
+  // Exit when the MCP transport actually closes. The SDK fires onclose only
+  // after the transport has handed off any in-flight work — this is the
+  // correct signal of "client disconnected", unlike raw stdin 'end'/'close'
+  // events which can fire spuriously during normal operation and kill the
+  // container mid-request. The small delay allows pending log/cache writes
+  // to flush before process exit.
+  server.onclose = () => {
+    logger.info('MCP transport closed — shutting down');
+    setTimeout(() => process.exit(0), 100);
+  };
 }
 
 main().catch((error) => {
