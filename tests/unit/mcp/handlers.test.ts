@@ -237,6 +237,49 @@ describe('handlePrimitiveTool', () => {
       expect(result?.isError).toBeUndefined();
     });
 
+    it('should apply from_date on its own as an open-ended range', async () => {
+      const { getSlackClient } = await import('@/core/slack/client.js');
+      const client = getSlackClient();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const search = vi.mocked(client.searchMessages);
+      search.mockClear();
+
+      await handlePrimitiveTool('slack_search_messages', {
+        query: 'test',
+        from_date: '2024-01-15',
+      });
+
+      const range = search.mock.calls[0][1];
+      expect(range?.start?.toISODate()).toBe('2024-01-15');
+      expect(range?.end).toBeUndefined();
+    });
+
+    it('should apply to_date on its own as an open-ended range', async () => {
+      const { getSlackClient } = await import('@/core/slack/client.js');
+      const client = getSlackClient();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const search = vi.mocked(client.searchMessages);
+      search.mockClear();
+
+      await handlePrimitiveTool('slack_search_messages', {
+        query: 'test',
+        to_date: '2024-01-15',
+      });
+
+      const range = search.mock.calls[0][1];
+      expect(range?.start).toBeUndefined();
+      expect(range?.end?.toISODate()).toBe('2024-01-15');
+    });
+
+    it('should reject a malformed date instead of ignoring it', async () => {
+      const result = await handlePrimitiveTool('slack_search_messages', {
+        query: 'test',
+        from_date: 'last tuesday',
+      });
+
+      expect(result?.isError).toBe(true);
+    });
+
     it('should return error for missing query', async () => {
       const result = await handlePrimitiveTool('slack_search_messages', {});
 

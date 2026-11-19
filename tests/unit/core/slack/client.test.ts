@@ -327,6 +327,20 @@ describe('SlackClient', () => {
       );
     });
 
+    it('should add only the bound that is given', async () => {
+      mockSearchMessages.mockResolvedValue({
+        ok: true,
+        messages: { matches: [], paging: { pages: 1, page: 1 } },
+      });
+
+      const client = new SlackClient();
+      await client.searchMessages('test', { start: DateTime.fromISO('2024-01-15T00:00:00') });
+      await client.searchMessages('test', { end: DateTime.fromISO('2024-01-15T23:59:59') });
+
+      expect(mockSearchMessages.mock.calls.at(-2)?.[0]).toMatchObject({ query: 'test after:2024-01-14' });
+      expect(mockSearchMessages.mock.calls.at(-1)?.[0]).toMatchObject({ query: 'test before:2024-01-16' });
+    });
+
     it('should handle pagination in search', async () => {
       mockSearchMessages
         .mockResolvedValueOnce({

@@ -194,10 +194,11 @@ export async function handlePrimitiveTool(
     switch (name) {
       case 'slack_search_messages': {
         const input = SearchMessagesInputSchema.parse(args);
-        const timeRange =
-          input.from_date && input.to_date
-            ? parseTimespan(`${input.from_date}..${input.to_date}`)
-            : undefined;
+        // Either bound may be given alone; parseTimespan throws on a malformed date
+        const timeRange = {
+          start: input.from_date ? parseTimespan(input.from_date).start : undefined,
+          end: input.to_date ? parseTimespan(input.to_date).end : undefined,
+        };
 
         // Build search query with modifiers
         let query = input.query;

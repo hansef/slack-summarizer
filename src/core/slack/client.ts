@@ -167,19 +167,19 @@ export class SlackClient {
 
   async searchMessages(
     query: string,
-    timeRange?: DateRange
+    timeRange?: Partial<DateRange>
   ): Promise<SlackMessage[]> {
     const messages: SlackMessage[] = [];
     let page = 1;
 
-    // Add time range to query if provided
+    // Slack's after: and before: are both exclusive, so adjust boundaries
+    // after:2025-12-07 before:2025-12-09 captures messages on Dec 8
     let fullQuery = query;
-    if (timeRange) {
-      // Slack's after: and before: are both exclusive, so adjust boundaries
-      // after:2025-12-07 before:2025-12-09 captures messages on Dec 8
-      const startDate = timeRange.start.minus({ days: 1 }).toFormat('yyyy-MM-dd');
-      const endDate = timeRange.end.plus({ days: 1 }).toFormat('yyyy-MM-dd');
-      fullQuery += ` after:${startDate} before:${endDate}`;
+    if (timeRange?.start) {
+      fullQuery += ` after:${timeRange.start.minus({ days: 1 }).toFormat('yyyy-MM-dd')}`;
+    }
+    if (timeRange?.end) {
+      fullQuery += ` before:${timeRange.end.plus({ days: 1 }).toFormat('yyyy-MM-dd')}`;
     }
 
     let hasMorePages = true;
