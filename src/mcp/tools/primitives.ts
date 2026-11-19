@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getSlackClient, SlackClient } from '@/core/slack/client.js';
-import { parseTimespan } from '@/utils/dates.js';
+import { fromSlackTimestamp, parseTimespan } from '@/utils/dates.js';
 import { createLogger } from '@/utils/logging/index.js';
 
 const logger = createLogger({ component: 'McpPrimitives' });
@@ -52,11 +52,12 @@ function buildUserObject(
 
 // Input schemas for primitive tools
 const SearchMessagesInputSchema = z.object({
-  query: z.string().describe('Search query (supports Slack search modifiers)'),
-  user: z.string().optional().describe('Filter by user ID'),
+  query: z.string().optional().default('').describe('Search query (supports Slack search modifiers)'),
+  user: z.string().optional().describe('User ID, @handle, display name or full name'),
   channel: z.string().optional().describe('Filter by channel ID'),
-  from_date: z.string().optional().describe('Start date (YYYY-MM-DD)'),
-  to_date: z.string().optional().describe('End date (YYYY-MM-DD)'),
+  from_date: z.string().optional().describe('Start date (YYYY-MM-DD), inclusive'),
+  to_date: z.string().optional().describe('End date (YYYY-MM-DD), inclusive'),
+  sort: z.enum(['newest', 'oldest']).optional().default('newest'),
   limit: z.number().optional().default(50).describe('Maximum results to return'),
 });
 
@@ -94,26 +95,35 @@ export function getPrimitiveTools(): Tool[] {
   return [
     {
       name: 'slack_search_messages',
-      description: `Search for Slack messages using a query.
+      description: `Search Slack messages. Results are newest first unless sort is "oldest".
 
-Supports Slack search modifiers:
-- from:@user - Messages from a specific user
-- in:#channel - Messages in a specific channel
-- has:reaction - Messages with reactions
-- before:date, after:date - Date filtering
+Filter with the parameters rather than query modifiers where one exists:
+- from_date / to_date: inclusive YYYY-MM-DD dates in the configured timezone. Either works alone.
+- user: a user ID, @handle, display name or full name ("Jane Doe"). Names resolve to an ID; an ambiguous name returns an error listing the candidate IDs. A display name written as from:@Jane Doe in the query silently matches nothing, because from: only takes a handle.
+- channel: a channel ID. For a channel name, put in:#channel-name in the query.
 
-Returns matching messages with channel, user, timestamp, and text.`,
+The query is optional when a filter is given: { user: "Jane Doe", from_date: "2026-01-05" } returns everything she sent since then. There is no wildcard; * is a literal term in Slack and matches nothing. The query also accepts Slack modifiers such as in:#channel, has:reaction, has:link and "exact phrase".
+
+Returns up to limit messages, each with channel, user, timestamp, date (ISO, local time) and text.`,
       inputSchema: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: 'Search query' },
-          user: { type: 'string', description: 'Filter by user ID' },
-          channel: { type: 'string', description: 'Filter by channel ID' },
-          from_date: { type: 'string', description: 'Start date (YYYY-MM-DD)' },
-          to_date: { type: 'string', description: 'End date (YYYY-MM-DD)' },
+          query: { type: 'string', description: 'Search terms (optional when a filter is given)' },
+          user: {
+            type: 'string',
+            description: 'Sender: user ID, @handle, display name or full name',
+          },
+          channel: { type: 'string', description: 'Channel ID' },
+          from_date: { type: 'string', description: 'Start date (YYYY-MM-DD), inclusive' },
+          to_date: { type: 'string', description: 'End date (YYYY-MM-DD), inclusive' },
+          sort: {
+            type: 'string',
+            enum: ['newest', 'oldest'],
+            description: 'Result order (default: newest)',
+          },
           limit: { type: 'number', description: 'Max results (default: 50)' },
         },
-        required: ['query'],
+        required: [],
       },
     },
     {
@@ -200,16 +210,25 @@ export async function handlePrimitiveTool(
           end: input.to_date ? parseTimespan(input.to_date).end : undefined,
         };
 
-        // Build search query with modifiers
-        let query = input.query;
-        if (input.user) {
-          query += ` from:<@${input.user}>`;
-        }
-        if (input.channel) {
-          query += ` in:<#${input.channel}>`;
+        // Slack has no match-all wildcard: a bare * is a literal term that matches nothing
+        const terms = input.query.trim() === '*' ? '' : input.query.trim();
+        if (!terms && !input.user && !input.channel && !input.from_date && !input.to_date) {
+          throw new Error('Provide a query or at least one filter (user, channel, from_date, to_date)');
         }
 
-        const messages = await slackClient.searchMessages(query, timeRange);
+        const parts = [terms];
+        if (input.user) {
+          parts.push(`from:<@${await slackClient.resolveUser(input.user)}>`);
+        }
+        if (input.channel) {
+          parts.push(`in:<#${input.channel}>`);
+        }
+        const query = parts.filter(Boolean).join(' ');
+
+        const messages = await slackClient.searchMessages(query, timeRange, {
+          sort: input.sort === 'oldest' ? 'asc' : 'desc',
+          maxResults: input.limit,
+        });
         const limitedMessages = messages.slice(0, input.limit);
 
         // Resolve user IDs to display names
@@ -219,6 +238,7 @@ export async function handlePrimitiveTool(
           channel: msg.channel,
           user: buildUserObject(msg.user, userNames),
           timestamp: msg.ts,
+          date: fromSlackTimestamp(msg.ts).toFormat("yyyy-MM-dd'T'HH:mm:ssZZ"),
           text: msg.text,
         }));
 

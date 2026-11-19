@@ -53,6 +53,7 @@ export const SlackChannelSchema = z.object({
   is_mpim: z.boolean().optional(),
   is_private: z.boolean().optional(),
   is_member: z.boolean().optional(),
+  is_ext_shared: z.boolean().optional(), // Slack Connect: members from other orgs
   num_members: z.number().optional(),
   user: z.string().optional(), // For DMs: the other user's ID
   members: z.array(z.string()).optional(), // For MPIMs: array of member user IDs

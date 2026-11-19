@@ -38,6 +38,7 @@ const mockChatGetPermalink = vi.fn();
 const mockUsersInfo = vi.fn();
 const mockUsersList = vi.fn();
 const mockConversationsInfo = vi.fn();
+const mockConversationsMembers = vi.fn();
 
 vi.mock('@slack/web-api', () => ({
   WebClient: vi.fn().mockImplementation(() => ({
@@ -51,6 +52,7 @@ vi.mock('@slack/web-api', () => ({
       history: mockConversationsHistory,
       replies: mockConversationsReplies,
       info: mockConversationsInfo,
+      members: mockConversationsMembers,
     },
     search: { messages: mockSearchMessages },
     reactions: { list: mockReactionsList },
@@ -339,6 +341,27 @@ describe('SlackClient', () => {
 
       expect(mockSearchMessages.mock.calls.at(-2)?.[0]).toMatchObject({ query: 'test after:2024-01-14' });
       expect(mockSearchMessages.mock.calls.at(-1)?.[0]).toMatchObject({ query: 'test before:2024-01-16' });
+    });
+
+    it('should pass sort direction and stop paging once maxResults is reached', async () => {
+      mockSearchMessages.mockClear();
+      mockSearchMessages.mockResolvedValue({
+        ok: true,
+        messages: {
+          matches: [
+            { ts: '2.0', text: 'Newer', user: 'U1', channel: { id: 'C1' } },
+            { ts: '1.0', text: 'Older', user: 'U1', channel: { id: 'C1' } },
+          ],
+          paging: { pages: 5, page: 1 },
+        },
+      });
+
+      const client = new SlackClient();
+      const messages = await client.searchMessages('test', undefined, { sort: 'desc', maxResults: 2 });
+
+      expect(mockSearchMessages).toHaveBeenCalledTimes(1);
+      expect(mockSearchMessages.mock.calls[0][0]).toMatchObject({ sort_dir: 'desc' });
+      expect(messages.map((m) => m.text)).toEqual(['Newer', 'Older']);
     });
 
     it('should handle pagination in search', async () => {
@@ -728,6 +751,94 @@ describe('SlackClient', () => {
 
       const client = new SlackClient();
       await expect(client.listUsers()).rejects.toThrow('Failed to list users');
+    });
+  });
+
+  describe('resolveUser', () => {
+    const members = [
+      { id: 'U001', name: 'rloritsch', real_name: 'Rick Loritsch', profile: { display_name: 'Rick L' } },
+      { id: 'U002', name: 'rsmith', real_name: 'Rick Smith', profile: { display_name: '' } },
+      { id: 'U003', name: 'zark', real_name: 'Zark Example', profile: { display_name: 'zark' } },
+    ];
+
+    beforeEach(() => {
+      mockUsersList.mockReset();
+      mockUsersList.mockResolvedValue({ ok: true, members, response_metadata: {} });
+      mockUsersConversations.mockReset();
+      mockUsersConversations.mockResolvedValue({ ok: true, channels: [], response_metadata: {} });
+      mockConversationsMembers.mockReset();
+      mockUsersInfo.mockReset();
+    });
+
+    it('should fall back to Slack Connect users in shared channels and DMs', async () => {
+      mockUsersConversations.mockResolvedValue({
+        ok: true,
+        channels: [
+          { id: 'C1', is_channel: true, is_ext_shared: true },
+          { id: 'C2', is_channel: true },
+          { id: 'D1', is_im: true, user: 'UEXT2' },
+        ],
+        response_metadata: {},
+      });
+      mockConversationsMembers.mockResolvedValue({
+        ok: true,
+        members: ['U001', 'UEXT1'],
+        response_metadata: {},
+      });
+      mockUsersInfo.mockImplementation(({ user }: { user: string }) =>
+        Promise.resolve({
+          ok: true,
+          user:
+            user === 'UEXT1'
+              ? { id: 'UEXT1', name: 'kelly.lake', profile: { real_name: 'Kelly Lake' } }
+              : { id: 'UEXT2', name: 'val.b', profile: { real_name: 'Valerie Bullinger' } },
+        })
+      );
+
+      const client = new SlackClient();
+      expect(await client.resolveUser('Kelly Lake')).toBe('UEXT1');
+      expect(await client.resolveUser('valerie bullinger')).toBe('UEXT2');
+      expect(mockConversationsMembers).toHaveBeenCalledTimes(1);
+      expect(mockConversationsMembers.mock.calls[0][0]).toMatchObject({ channel: 'C1' });
+      // Workspace members aren't looked up again; the directory is built once
+      expect(mockUsersInfo).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not enumerate shared channels when a workspace user matches exactly', async () => {
+      const client = new SlackClient();
+      expect(await client.resolveUser('Rick Loritsch')).toBe('U001');
+      expect(mockUsersConversations).not.toHaveBeenCalled();
+    });
+
+    it('should return a user ID unchanged without listing users', async () => {
+      const client = new SlackClient();
+      expect(await client.resolveUser('U0ABC1234')).toBe('U0ABC1234');
+      expect(await client.resolveUser('<@U0ABC1234>')).toBe('U0ABC1234');
+      expect(mockUsersList).not.toHaveBeenCalled();
+    });
+
+    it('should match handle, display name, or real name case-insensitively', async () => {
+      const client = new SlackClient();
+      expect(await client.resolveUser('@zark')).toBe('U003');
+      expect(await client.resolveUser('rick l')).toBe('U001');
+      expect(await client.resolveUser('Rick Loritsch')).toBe('U001');
+      // Users list is fetched once per client
+      expect(mockUsersList).toHaveBeenCalledTimes(1);
+    });
+
+    it('should accept a unique partial name match', async () => {
+      const client = new SlackClient();
+      expect(await client.resolveUser('Loritsch')).toBe('U001');
+    });
+
+    it('should throw listing candidates when the name is ambiguous', async () => {
+      const client = new SlackClient();
+      await expect(client.resolveUser('Rick')).rejects.toThrow(/U001.*U002|U002.*U001/s);
+    });
+
+    it('should throw when nothing matches', async () => {
+      const client = new SlackClient();
+      await expect(client.resolveUser('Nobody Here')).rejects.toThrow(/No Slack user matches/);
     });
   });
 

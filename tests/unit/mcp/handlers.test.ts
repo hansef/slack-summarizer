@@ -75,6 +75,7 @@ vi.mock('@/core/slack/client.js', () => {
       { id: 'C123', name: 'general', is_private: false, is_im: false, is_mpim: false, num_members: 50 },
     ]),
     getCurrentUserId: vi.fn().mockResolvedValue('U123'),
+    resolveUser: vi.fn((input: string) => Promise.resolve(input)),
     getUserInfo: vi.fn().mockResolvedValue({
       id: 'U456',
       name: 'testuser',
@@ -271,6 +272,69 @@ describe('handlePrimitiveTool', () => {
       expect(range?.end?.toISODate()).toBe('2024-01-15');
     });
 
+    it('should default to newest-first and cap fetching at limit', async () => {
+      const { getSlackClient } = await import('@/core/slack/client.js');
+      const client = getSlackClient();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const search = vi.mocked(client.searchMessages);
+      search.mockClear();
+
+      await handlePrimitiveTool('slack_search_messages', { query: 'test', limit: 7 });
+      expect(search.mock.calls[0][2]).toEqual({ sort: 'desc', maxResults: 7 });
+
+      await handlePrimitiveTool('slack_search_messages', { query: 'test', sort: 'oldest' });
+      expect(search.mock.calls[1][2]).toEqual({ sort: 'asc', maxResults: 50 });
+    });
+
+    it('should resolve a user name to an ID for the from: filter', async () => {
+      const { getSlackClient } = await import('@/core/slack/client.js');
+      const client = getSlackClient();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const search = vi.mocked(client.searchMessages);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      vi.mocked(client.resolveUser).mockResolvedValueOnce('U999');
+      search.mockClear();
+
+      await handlePrimitiveTool('slack_search_messages', { query: 'budget', user: 'Rick Loritsch' });
+
+      expect(search.mock.calls[0][0]).toBe('budget from:<@U999>');
+    });
+
+    it('should allow a filter-only search and treat a bare * as no query', async () => {
+      const { getSlackClient } = await import('@/core/slack/client.js');
+      const client = getSlackClient();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const search = vi.mocked(client.searchMessages);
+      search.mockClear();
+
+      await handlePrimitiveTool('slack_search_messages', { user: 'U999' });
+      await handlePrimitiveTool('slack_search_messages', { query: '*', user: 'U999' });
+
+      expect(search.mock.calls[0][0]).toBe('from:<@U999>');
+      expect(search.mock.calls[1][0]).toBe('from:<@U999>');
+    });
+
+    it('should surface a user resolution failure as a tool error', async () => {
+      const { getSlackClient } = await import('@/core/slack/client.js');
+      const client = getSlackClient();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      vi.mocked(client.resolveUser).mockRejectedValueOnce(new Error('No Slack user matches "Nobody"'));
+
+      const result = await handlePrimitiveTool('slack_search_messages', { query: 'x', user: 'Nobody' });
+
+      expect(result?.isError).toBe(true);
+      expect((result?.content[0] as { type: 'text'; text: string }).text).toContain('No Slack user matches');
+    });
+
+    it('should include a readable date on each result', async () => {
+      const result = await handlePrimitiveTool('slack_search_messages', { query: 'hello' });
+      const parsed = JSON.parse((result!.content[0] as { type: 'text'; text: string }).text) as Array<{
+        date: string;
+      }>;
+      // 1704067200 is 2024-01-01T00:00:00Z; the offset depends on the configured timezone
+      expect(parsed[0].date).toMatch(/^202[34]-\d{2}-\d{2}T\d{2}:\d{2}/);
+    });
+
     it('should reject a malformed date instead of ignoring it', async () => {
       const result = await handlePrimitiveTool('slack_search_messages', {
         query: 'test',
@@ -280,13 +344,13 @@ describe('handlePrimitiveTool', () => {
       expect(result?.isError).toBe(true);
     });
 
-    it('should return error for missing query', async () => {
+    it('should return error when neither a query nor a filter is given', async () => {
       const result = await handlePrimitiveTool('slack_search_messages', {});
 
       expect(result).not.toBeNull();
       expect(result?.isError).toBe(true);
       const text = (result?.content[0] as { type: 'text'; text: string }).text;
-      expect(text).toContain('Invalid input');
+      expect(text).toContain('Provide a query or at least one filter');
     });
   });
 

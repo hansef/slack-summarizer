@@ -20,11 +20,58 @@ export interface SlackClientConfig {
   rateLimiter?: RateLimiter;
 }
 
+const CONNECT_LOOKUP_CONCURRENCY = 8;
+
+interface RawSlackUser {
+  id?: string;
+  name?: string;
+  real_name?: string;
+  is_bot?: boolean;
+  profile?: { real_name?: string; display_name?: string };
+}
+
+function toSlackUser(raw: RawSlackUser, fallbackId: string): SlackUser {
+  return {
+    id: raw.id ?? fallbackId,
+    name: raw.name ?? fallbackId,
+    // External users may have real_name only in profile, not at top level
+    real_name: raw.real_name ?? raw.profile?.real_name,
+    display_name: raw.profile?.display_name,
+    is_bot: raw.is_bot,
+  };
+}
+
+/** Maps over items with at most `concurrency` calls in flight, preserving order */
+async function mapConcurrent<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+export interface SearchOptions {
+  /** Timestamp sort direction; defaults to 'asc' for the summarization pipeline */
+  sort?: 'asc' | 'desc';
+  /** Stop paging once at least this many matches are collected */
+  maxResults?: number;
+}
+
 export class SlackClient {
   private client: WebClient;
   private rateLimiter: RateLimiter;
   private userId: string | null = null;
   private userCache = new Map<string, SlackUser>();
+  private memo = new Map<string, Promise<unknown>>();
   private logger: Logger;
 
   constructor(config: SlackClientConfig = {}) {
@@ -167,20 +214,22 @@ export class SlackClient {
 
   async searchMessages(
     query: string,
-    timeRange?: Partial<DateRange>
+    timeRange?: Partial<DateRange>,
+    options: SearchOptions = {}
   ): Promise<SlackMessage[]> {
+    const { sort = 'asc', maxResults } = options;
     const messages: SlackMessage[] = [];
     let page = 1;
 
     // Slack's after: and before: are both exclusive, so adjust boundaries
     // after:2025-12-07 before:2025-12-09 captures messages on Dec 8
-    let fullQuery = query;
-    if (timeRange?.start) {
-      fullQuery += ` after:${timeRange.start.minus({ days: 1 }).toFormat('yyyy-MM-dd')}`;
-    }
-    if (timeRange?.end) {
-      fullQuery += ` before:${timeRange.end.plus({ days: 1 }).toFormat('yyyy-MM-dd')}`;
-    }
+    const fullQuery = [
+      query,
+      timeRange?.start && `after:${timeRange.start.minus({ days: 1 }).toFormat('yyyy-MM-dd')}`,
+      timeRange?.end && `before:${timeRange.end.plus({ days: 1 }).toFormat('yyyy-MM-dd')}`,
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     let hasMorePages = true;
     while (hasMorePages) {
@@ -188,7 +237,7 @@ export class SlackClient {
         this.client.search.messages({
           query: fullQuery,
           sort: 'timestamp',
-          sort_dir: 'asc',
+          sort_dir: sort,
           count: 100,
           page,
         })
@@ -222,7 +271,9 @@ export class SlackClient {
       }
 
       const paging = response.messages?.paging;
-      if (!paging || !paging.pages || page >= paging.pages) {
+      if (maxResults !== undefined && messages.length >= maxResults) {
+        hasMorePages = false;
+      } else if (!paging || !paging.pages || page >= paging.pages) {
         hasMorePages = false;
       } else {
         page++;
@@ -378,15 +429,7 @@ export class SlackClient {
       throw new Error(`Failed to get user info: ${response.error}`);
     }
 
-    const user: SlackUser = {
-      id: response.user.id,
-      name: response.user.name ?? userId,
-      // External users may have real_name only in profile, not at top level
-      real_name: response.user.real_name ?? response.user.profile?.real_name,
-      display_name: response.user.profile?.display_name,
-      is_bot: response.user.is_bot,
-    };
-
+    const user = toSlackUser(response.user, userId);
     this.userCache.set(userId, user);
     return user;
   }
@@ -437,6 +480,117 @@ export class SlackClient {
 
     this.logger.debug({ count: users.length }, 'Listed users');
     return users;
+  }
+
+  /**
+   * Resolves a user ID, <@ID> mention, @handle, display name or real name to a
+   * user ID. Exact matches win over partial ones; ambiguity or no match throws
+   * with enough detail for the caller to retry with an ID.
+   *
+   * users.list omits Slack Connect users from other orgs, so when no workspace
+   * member matches exactly, the directory expands to members of shared
+   * channels and DMs. That costs one users.info call per external user, once
+   * per client.
+   */
+  async resolveUser(input: string): Promise<string> {
+    const trimmed = input.trim();
+    const mention = /^<@([UW][A-Z0-9]+)(?:\|[^>]*)?>$/.exec(trimmed);
+    if (mention) return mention[1];
+    if (/^[UW](?=[A-Z0-9]*\d)[A-Z0-9]{6,}$/.test(trimmed)) return trimmed;
+
+    const needle = trimmed.replace(/^@/, '').toLowerCase();
+    const namesOf = (u: SlackUser): string[] =>
+      [u.name, u.display_name, u.real_name].filter((n): n is string => !!n).map((n) => n.toLowerCase());
+
+    const workspace = await this.memoized('workspaceUsers', () => this.listUsers());
+    const workspaceExact = workspace.filter((u) => namesOf(u).includes(needle));
+    if (workspaceExact.length === 1) return workspaceExact[0].id;
+
+    const external = await this.memoized('connectUsers', () =>
+      this.listConnectUsers(new Set(workspace.map((u) => u.id)))
+    );
+    const users = [...workspace, ...external];
+    const exact = users.filter((u) => namesOf(u).includes(needle));
+    const matches = exact.length > 0 ? exact : users.filter((u) => namesOf(u).some((n) => n.includes(needle)));
+
+    if (matches.length === 1) return matches[0].id;
+    if (matches.length === 0) {
+      throw new Error(
+        `No Slack user matches "${input}". Pass a user ID, @handle, display name or full name.`
+      );
+    }
+    const candidates = matches
+      .slice(0, 10)
+      .map((u) => `${u.id} (${u.real_name || u.display_name || u.name})`)
+      .join(', ');
+    throw new Error(`"${input}" matches ${matches.length} Slack users: ${candidates}. Pass one of these IDs.`);
+  }
+
+  /**
+   * Users from other orgs reachable through Slack Connect channels and DMs.
+   *
+   * This is a one-off burst of a few hundred calls. It bypasses the serial
+   * rate limiter, which would stretch it to about a minute, and relies on
+   * WebClient's own Retry-After handling for 429s.
+   */
+  private async listConnectUsers(known: Set<string>): Promise<SlackUser[]> {
+    const ids = new Set<string>();
+    const channels = await this.listChannels();
+
+    for (const ch of channels) {
+      if (ch.is_im && ch.user && !known.has(ch.user)) ids.add(ch.user);
+    }
+
+    await mapConcurrent(
+      channels.filter((c) => c.is_ext_shared),
+      CONNECT_LOOKUP_CONCURRENCY,
+      async (ch) => {
+        try {
+          let cursor: string | undefined;
+          do {
+            const response = await this.client.conversations.members({ channel: ch.id, limit: 1000, cursor });
+            for (const id of response.members ?? []) {
+              if (!known.has(id)) ids.add(id);
+            }
+            cursor = response.response_metadata?.next_cursor || undefined;
+          } while (cursor);
+        } catch (e) {
+          this.logger.warn({ channel: ch.id, error: String(e) }, 'Failed to list channel members');
+        }
+      }
+    );
+
+    const users = await mapConcurrent(Array.from(ids), CONNECT_LOOKUP_CONCURRENCY, async (id) => {
+      const cached = this.userCache.get(id);
+      if (cached) return cached;
+      try {
+        const response = await this.client.users.info({ user: id });
+        if (!response.user?.id || response.user.deleted) return null;
+        const user = toSlackUser(response.user, id);
+        this.userCache.set(id, user);
+        return user;
+      } catch (e) {
+        this.logger.warn({ userId: id, error: String(e) }, 'Failed to get user info');
+        return null;
+      }
+    });
+
+    const found = users.filter((u): u is SlackUser => u !== null);
+    this.logger.debug({ count: found.length }, 'Listed Slack Connect users');
+    return found;
+  }
+
+  /** Caches a fetch for the client's lifetime; a failure is dropped so the next call retries */
+  private memoized<T>(key: string, fetch: () => Promise<T>): Promise<T> {
+    let pending = this.memo.get(key) as Promise<T> | undefined;
+    if (!pending) {
+      pending = fetch().catch((e: unknown) => {
+        this.memo.delete(key);
+        throw e;
+      });
+      this.memo.set(key, pending);
+    }
+    return pending;
   }
 
   async getChannelInfo(channelId: string): Promise<SlackChannel> {
