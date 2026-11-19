@@ -143,6 +143,14 @@ describe('Reference Extractor', () => {
           messageTs: '1234.5678',
         });
       });
+
+      it('should not backtrack catastrophically on long alphabetic tokens', () => {
+        const msg = createMessage(`deploy token ${'x'.repeat(200)} rolled out`);
+
+        const start = performance.now();
+        extractReferencesFromMessage(msg);
+        expect(performance.now() - start).toBeLessThan(1000);
+      });
     });
 
     describe('combined extraction', () => {

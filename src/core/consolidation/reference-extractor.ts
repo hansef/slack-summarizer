@@ -216,9 +216,12 @@ const EXTRACTORS: PatternExtractor[] = [
 
   // Error patterns: PascalCase errors like NetworkError, NullPointerException
   // HTTP status codes require "error" or "status" after them
+  // NOTE: the first branch must stay linear under the `i` flag — the previous
+  // nested-quantifier form (?:[A-Z][a-z]*)* backtracked exponentially on long
+  // alphabetic tokens once `i` made both classes equivalent
   {
     type: 'error_pattern',
-    pattern: /\b([A-Z][a-z]+(?:[A-Z][a-z]*)*(?:Error|Exception))\b|\b([45]\d{2})\s+(?:error|status)\b/gi,
+    pattern: /\b([A-Za-z]{2,}(?:Error|Exception))\b|\b([45]\d{2})\s+(?:error|status)\b/gi,
     normalize: (m) => {
       const errorName = m[1] || m[2];
       return errorName ? errorName.toLowerCase() : null;
