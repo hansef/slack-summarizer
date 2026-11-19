@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 RUN npm install -g pnpm
 
@@ -13,7 +13,7 @@ COPY src ./src
 RUN pnpm build
 
 # Runtime stage
-FROM node:20-alpine
+FROM node:24-alpine
 
 RUN npm install -g pnpm @anthropic-ai/claude-code
 
