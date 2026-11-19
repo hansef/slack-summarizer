@@ -805,9 +805,72 @@ describe('SlackClient', () => {
     });
 
     it('should not enumerate shared channels when a workspace user matches exactly', async () => {
-      const client = new SlackClient();
+      const store = { load: vi.fn(), save: vi.fn() };
+      const client = new SlackClient({ userDirectory: store });
       expect(await client.resolveUser('Rick Loritsch')).toBe('U001');
       expect(mockUsersConversations).not.toHaveBeenCalled();
+      expect(store.load).not.toHaveBeenCalled();
+    });
+
+    describe('with a persisted Slack Connect directory', () => {
+      const kelly = { id: 'UEXT1', name: 'kelly.lake', real_name: 'Kelly Lake' };
+
+      beforeEach(() => {
+        mockAuthTest.mockResolvedValue({ ok: true, user_id: 'U000', user: 'me', team_id: 'T1', team: 'Team' });
+        mockUsersConversations.mockResolvedValue({
+          ok: true,
+          channels: [{ id: 'C1', is_channel: true, is_ext_shared: true }],
+          response_metadata: {},
+        });
+        mockConversationsMembers.mockResolvedValue({ ok: true, members: ['UEXT1'], response_metadata: {} });
+        mockUsersInfo.mockResolvedValue({
+          ok: true,
+          user: { id: 'UEXT1', name: 'kelly.lake', profile: { real_name: 'Kelly Lake' } },
+        });
+      });
+
+      it('should resolve from the stored directory without listing shared channels', async () => {
+        const store = { load: vi.fn().mockReturnValue([kelly]), save: vi.fn() };
+        const client = new SlackClient({ userDirectory: store });
+
+        expect(await client.resolveUser('Kelly Lake')).toBe('UEXT1');
+        expect(store.load).toHaveBeenCalledWith('T1');
+        expect(mockUsersConversations).not.toHaveBeenCalled();
+      });
+
+      it('should build and save the directory when nothing is stored', async () => {
+        const store = { load: vi.fn().mockReturnValue(null), save: vi.fn() };
+        const client = new SlackClient({ userDirectory: store });
+
+        expect(await client.resolveUser('Kelly Lake')).toBe('UEXT1');
+        expect(store.save).toHaveBeenCalledWith('T1', [expect.objectContaining({ id: 'UEXT1' })]);
+      });
+
+      it('should rebuild once when the stored directory has no match', async () => {
+        const stale = { id: 'UOLD', name: 'someone.else', real_name: 'Someone Else' };
+        const store = { load: vi.fn().mockReturnValue([stale]), save: vi.fn() };
+        const client = new SlackClient({ userDirectory: store });
+
+        expect(await client.resolveUser('Kelly Lake')).toBe('UEXT1');
+        expect(store.save).toHaveBeenCalledTimes(1);
+        // The rebuilt directory replaces the stale one for later lookups
+        await expect(client.resolveUser('Someone Else')).rejects.toThrow(/No Slack user matches/);
+        expect(mockUsersConversations).toHaveBeenCalledTimes(1);
+      });
+
+      it('should fall back to a live build when the store fails', async () => {
+        const store = {
+          load: vi.fn(() => {
+            throw new Error('database is locked');
+          }),
+          save: vi.fn(() => {
+            throw new Error('database is locked');
+          }),
+        };
+        const client = new SlackClient({ userDirectory: store });
+
+        expect(await client.resolveUser('Kelly Lake')).toBe('UEXT1');
+      });
     });
 
     it('should return a user ID unchanged without listing users', async () => {

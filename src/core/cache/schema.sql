@@ -89,3 +89,14 @@ CREATE TABLE IF NOT EXISTS conversation_embeddings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_embeddings_hash ON conversation_embeddings(text_hash);
+
+-- Slack Connect users from other orgs, reachable through shared channels and
+-- DMs. users.list omits them, and rebuilding the directory takes a few hundred
+-- API calls, so it persists per workspace (team_id of the token)
+CREATE TABLE IF NOT EXISTS connect_users (
+  team_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  raw_json TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL,
+  PRIMARY KEY (team_id, user_id)
+);

@@ -14,10 +14,23 @@ import {
 export type { SlackUser } from '@/core/models/slack.js';
 import type { DateRange } from '@/utils/dates.js';
 import { toSlackTimestamp } from '@/utils/dates.js';
+import { sqliteUserDirectory } from '@/core/cache/users.js';
+
+/** Persists the Slack Connect directory per workspace (team ID) between processes */
+export interface UserDirectoryStore {
+  load(teamId: string): SlackUser[] | null;
+  save(teamId: string, users: SlackUser[]): void;
+}
 
 export interface SlackClientConfig {
   token?: string;
   rateLimiter?: RateLimiter;
+  userDirectory?: UserDirectoryStore;
+}
+
+interface ConnectDirectory {
+  users: SlackUser[];
+  fromStore: boolean;
 }
 
 const CONNECT_LOOKUP_CONCURRENCY = 8;
@@ -72,12 +85,14 @@ export class SlackClient {
   private userId: string | null = null;
   private userCache = new Map<string, SlackUser>();
   private memo = new Map<string, Promise<unknown>>();
+  private userDirectory?: UserDirectoryStore;
   private logger: Logger;
 
   constructor(config: SlackClientConfig = {}) {
     const token = config.token ?? getEnv().SLACK_USER_TOKEN;
     this.client = new WebClient(token);
     this.rateLimiter = config.rateLimiter ?? getRateLimiter();
+    this.userDirectory = config.userDirectory;
     this.logger = createLogger({ component: 'SlackClient' });
   }
 
@@ -501,17 +516,23 @@ export class SlackClient {
     const needle = trimmed.replace(/^@/, '').toLowerCase();
     const namesOf = (u: SlackUser): string[] =>
       [u.name, u.display_name, u.real_name].filter((n): n is string => !!n).map((n) => n.toLowerCase());
+    const matchAll = (users: SlackUser[]): SlackUser[] => {
+      const exact = users.filter((u) => namesOf(u).includes(needle));
+      return exact.length > 0 ? exact : users.filter((u) => namesOf(u).some((n) => n.includes(needle)));
+    };
 
     const workspace = await this.memoized('workspaceUsers', () => this.listUsers());
     const workspaceExact = workspace.filter((u) => namesOf(u).includes(needle));
     if (workspaceExact.length === 1) return workspaceExact[0].id;
 
-    const external = await this.memoized('connectUsers', () =>
-      this.listConnectUsers(new Set(workspace.map((u) => u.id)))
-    );
-    const users = [...workspace, ...external];
-    const exact = users.filter((u) => namesOf(u).includes(needle));
-    const matches = exact.length > 0 ? exact : users.filter((u) => namesOf(u).some((n) => n.includes(needle)));
+    const known = new Set(workspace.map((u) => u.id));
+    const directory = await this.memoized('connectUsers', () => this.loadConnectDirectory(known));
+    let matches = matchAll([...workspace, ...directory.users]);
+    if (matches.length === 0 && directory.fromStore) {
+      // The stored directory may predate this person joining a shared channel
+      const fresh = await this.refreshConnectDirectory(known);
+      matches = matchAll([...workspace, ...fresh.users]);
+    }
 
     if (matches.length === 1) return matches[0].id;
     if (matches.length === 0) {
@@ -524,6 +545,35 @@ export class SlackClient {
       .map((u) => `${u.id} (${u.real_name || u.display_name || u.name})`)
       .join(', ');
     throw new Error(`"${input}" matches ${matches.length} Slack users: ${candidates}. Pass one of these IDs.`);
+  }
+
+  private async loadConnectDirectory(known: Set<string>): Promise<ConnectDirectory> {
+    if (this.userDirectory) {
+      try {
+        const stored = this.userDirectory.load(await this.getTeamId());
+        if (stored) return { users: stored, fromStore: true };
+      } catch (e) {
+        this.logger.warn({ error: String(e) }, 'Failed to load stored Slack Connect directory');
+      }
+    }
+    return this.refreshConnectDirectory(known);
+  }
+
+  private async refreshConnectDirectory(known: Set<string>): Promise<ConnectDirectory> {
+    const directory = { users: await this.listConnectUsers(known), fromStore: false };
+    this.memo.set('connectUsers', Promise.resolve(directory));
+    if (this.userDirectory) {
+      try {
+        this.userDirectory.save(await this.getTeamId(), directory.users);
+      } catch (e) {
+        this.logger.warn({ error: String(e) }, 'Failed to store Slack Connect directory');
+      }
+    }
+    return directory;
+  }
+
+  private getTeamId(): Promise<string> {
+    return this.memoized('teamId', async () => (await this.authenticate()).team_id);
   }
 
   /**
@@ -616,7 +666,7 @@ let globalClient: SlackClient | null = null;
 
 export function getSlackClient(config?: SlackClientConfig): SlackClient {
   if (!globalClient) {
-    globalClient = new SlackClient(config);
+    globalClient = new SlackClient({ userDirectory: sqliteUserDirectory, ...config });
   }
   return globalClient;
 }
