@@ -14,7 +14,11 @@ const program = new Command();
 program
   .name('slack-summarizer')
   .description('Summarize Slack activity over time')
-  .version('1.1.2');
+  .version('1.1.2')
+  // Without positional options, the program-level batch-mode flags below
+  // swallow identically-named options passed to subcommands, so
+  // `summarize --date X` silently ran with the default date
+  .enablePositionalOptions();
 
 interface DefaultOptions {
   batch?: boolean;
